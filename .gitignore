@@ -28,3 +28,6 @@ out/
 .vscode/
 *.iml
 *.log
+
+# 로컬 전용 compose 오버라이드
+docker-compose.override.yml
