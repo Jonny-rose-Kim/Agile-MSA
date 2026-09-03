@@ -1,0 +1,10 @@
+pluginManagement {
+    repositories {
+        // Maven Central(repo.maven.apache.org)이 429 Too Many Requests를 반환할 때를 대비한 미러.
+        maven { url = uri('https://maven-central.storage-download.googleapis.com/maven2/') }
+        gradlePluginPortal()
+        mavenCentral()
+    }
+}
+
+rootProject.name = 'order-service'

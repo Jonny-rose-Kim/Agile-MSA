@@ -6,9 +6,12 @@ import com.lecture.payment.kafka.PaymentKafkaProducer;
 import com.lecture.payment.repository.PaymentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -85,6 +88,38 @@ public class PaymentService {
                     .status("FAILED")
                     .build();
         }
+    }
+
+    /**
+     * 내 결제 내역 (프론트: GET /api/payments/my, X-User-Id 기준)
+     */
+    public PaymentDto.PageResponse<PaymentDto.PaymentResponse> getMyPayments(Long userId, Pageable pageable) {
+        Page<PaymentDto.PaymentResponse> page = paymentRepository
+                .findByUserIdOrderByIdDesc(userId, pageable)
+                .map(PaymentDto.PaymentResponse::from);
+        return PaymentDto.PageResponse.from(page);
+    }
+
+    /**
+     * 조달 결제 요청 (프론트: POST /api/payments)
+     * 데모 환경 - PG 연동 없이 즉시 COMPLETED 처리.
+     */
+    @Transactional
+    public PaymentDto.PaymentResponse createProcurementPayment(Long userId, Long orderId, BigDecimal amount) {
+        BigDecimal amt = (amount != null && amount.signum() > 0)
+                ? amount : BigDecimal.valueOf(1_000_000);
+
+        Payment payment = paymentRepository.save(
+                Payment.builder()
+                        .userId(userId)
+                        .courseId(orderId)   // NOT NULL 컬럼 재활용
+                        .orderId(orderId)
+                        .amount(amt)
+                        .build()
+        );
+        payment.complete(UUID.randomUUID().toString());
+        log.info("[PaymentService] 조달 결제 완료 - paymentId: {}, orderId: {}", payment.getId(), orderId);
+        return PaymentDto.PaymentResponse.from(payment);
     }
 
     /**
