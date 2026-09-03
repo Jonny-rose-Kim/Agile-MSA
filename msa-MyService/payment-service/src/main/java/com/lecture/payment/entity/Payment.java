@@ -28,6 +28,10 @@ public class Payment {
     @Column(name = "course_id", nullable = false)
     private Long courseId;
 
+    /** 조달 주문 ID (원료의약품 도메인). 강의 도메인의 course_id 를 대체. */
+    @Column(name = "order_id")
+    private Long orderId;
+
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal amount;
 

@@ -4,6 +4,9 @@ import com.lecture.payment.dto.PaymentDto;
 import com.lecture.payment.service.PaymentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,6 +28,29 @@ public class PaymentController {
 
         PaymentDto.InternalPaymentResult result = paymentService.processInternalPayment(request);
         return ResponseEntity.ok(result);
+    }
+
+    /**
+     * GET /api/payments/my - 내 결제 내역 (X-User-Id 기준)
+     */
+    @GetMapping("/my")
+    public ResponseEntity<PaymentDto.ApiResponse<PaymentDto.PageResponse<PaymentDto.PaymentResponse>>> getMyPayments(
+            @RequestHeader("X-User-Id") Long userId,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(
+                PaymentDto.ApiResponse.success(paymentService.getMyPayments(userId, pageable)));
+    }
+
+    /**
+     * POST /api/payments - 조달 결제 요청 (BUYER)
+     */
+    @PostMapping
+    public ResponseEntity<PaymentDto.ApiResponse<PaymentDto.PaymentResponse>> pay(
+            @Valid @RequestBody PaymentDto.ProcurementPaymentRequest request,
+            @RequestHeader("X-User-Id") Long userId) {
+        PaymentDto.PaymentResponse res =
+                paymentService.createProcurementPayment(userId, request.getOrderId(), request.getAmount());
+        return ResponseEntity.status(HttpStatus.CREATED).body(PaymentDto.ApiResponse.success(res));
     }
 
     /**

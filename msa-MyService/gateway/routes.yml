@@ -1,0 +1,52 @@
+# API Gateway 라우트 오버레이
+# prebuilt 이미지(msa-lecture/api-gateway:1.0)에는 /api/materials 라우트가 없어서
+# SPRING_CONFIG_ADDITIONAL_LOCATION 로 이 파일을 얹어 routes 목록을 통째로 교체한다.
+# (course-service 삭제 → 라우트에서도 제거, material-service 추가)
+
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: auth-server
+          uri: lb://auth-server
+          predicates:
+            - Path=/oauth2/**,/login,/login/**,/logout,/userinfo,/error,/default-ui.css,/favicon.ico,/.well-known/openid-configuration,/.well-known/oauth-authorization-server
+          filters:
+            - RewritePath=/(?<segment>.*), /${segment}
+            - PreserveHostHeader
+        - id: user-service
+          uri: lb://user-service
+          predicates:
+            - Path=/api/users/**
+          filters:
+            - RewritePath=/api/users/(?<segment>.*), /api/users/${segment}
+        - id: material-service
+          uri: lb://material-service
+          predicates:
+            - Path=/api/materials/**
+          filters:
+            - RewritePath=/api/materials/(?<segment>.*), /api/materials/${segment}
+        - id: order-service
+          uri: lb://order-service
+          predicates:
+            - Path=/api/orders/**
+          filters:
+            - RewritePath=/api/orders/(?<segment>.*), /api/orders/${segment}
+        - id: enrollment-service
+          uri: lb://enrollment-service
+          predicates:
+            - Path=/api/enrollments/**
+          filters:
+            - RewritePath=/api/enrollments/(?<segment>.*), /api/enrollments/${segment}
+        - id: payment-service
+          uri: lb://payment-service
+          predicates:
+            - Path=/api/payments/**
+          filters:
+            - RewritePath=/api/payments/(?<segment>.*), /api/payments/${segment}
+        - id: recommend-service
+          uri: lb://recommend-service
+          predicates:
+            - Path=/api/recommend/**
+          filters:
+            - RewritePath=/api/recommend/(?<segment>.*), /api/recommend/${segment}

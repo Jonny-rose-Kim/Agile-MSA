@@ -4,12 +4,39 @@ import com.lecture.payment.entity.Payment;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import lombok.*;
+import org.springframework.data.domain.Page;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
 public class PaymentDto {
+
+    // 조달 결제 요청 (프론트: POST /api/payments)
+    @Getter @NoArgsConstructor @AllArgsConstructor @Builder
+    public static class ProcurementPaymentRequest {
+        @NotNull(message = "주문번호는 필수입니다")
+        private Long orderId;
+        /** 미지정 시 서버가 주문 금액을 사용(데모에서는 임의값 허용) */
+        private BigDecimal amount;
+    }
+
+    // 페이지 래퍼
+    @Getter @NoArgsConstructor @AllArgsConstructor @Builder
+    public static class PageResponse<T> {
+        private List<T> content;
+        private int page;
+        private int size;
+        private long totalElements;
+        private int totalPages;
+        private boolean last;
+        public static <T> PageResponse<T> from(Page<T> p) {
+            return PageResponse.<T>builder()
+                    .content(p.getContent()).page(p.getNumber()).size(p.getSize())
+                    .totalElements(p.getTotalElements()).totalPages(p.getTotalPages()).last(p.isLast())
+                    .build();
+        }
+    }
 
     // 결제 요청 (외부 클라이언트용)
     @Getter
@@ -45,6 +72,7 @@ public class PaymentDto {
         private Long paymentId;
         private Long userId;
         private Long courseId;
+        private Long orderId;
         private BigDecimal amount;
         private Payment.Status status;
         private String transactionId;
@@ -55,6 +83,7 @@ public class PaymentDto {
                     .paymentId(payment.getId())
                     .userId(payment.getUserId())
                     .courseId(payment.getCourseId())
+                    .orderId(payment.getOrderId() != null ? payment.getOrderId() : payment.getCourseId())
                     .amount(payment.getAmount())
                     .status(payment.getStatus())
                     .transactionId(payment.getTransactionId())
