@@ -1,0 +1,64 @@
+server:
+  port: 8087
+
+spring:
+  application:
+    name: order-service
+
+  datasource:
+    url: jdbc:mariadb://lecturedb:3306/lecture_db
+    username: manager
+    password: SqlDba-1
+    driver-class-name: org.mariadb.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MariaDBDialect
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://auth-server:9000/oauth2/jwks
+          issuer-uri: http://auth-server:9000
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+# 서비스 간 통신 (컨테이너 DNS 직접 호출)
+service:
+  material-service:
+    url: http://material-service:8086
+  user-service:
+    url: http://user-service:8081
+
+# 서비스 간 내부 API 호출 키. 호출하는 쪽과 값이 같아야 한다.
+internal:
+  api-key: ${INTERNAL_API_KEY:msa-internal-key}
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+  health:
+    diskspace:
+      enabled: false

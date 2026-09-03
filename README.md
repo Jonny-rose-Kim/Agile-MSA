@@ -79,13 +79,36 @@ npm run dev
 | auth-server | 9000 | OAuth2 인가 · 토큰 발급 |
 | eureka-server | 8761 | 서비스 레지스트리 |
 | user-service | 8081 | 회원 · 권한 (BUYER / SUPPLIER) |
-| material-service | 8082 | 원료 카탈로그 · 공급 가능 공장 |
-| order-service | 8083 | 재고 · 임계치 · 조달 주문 |
+| material-service | 8086 | 원료 카탈로그 · 공급 가능 공장 · 여유 생산능력 |
+| order-service | 8087 | 조달 주문 · 수주 관리 |
 | payment-service | 8084 | 조달 결제 |
 | recommend-service | 8085 | AI 수요 예측 · 공장 추천 |
 | vue-frontend | 3000 | 프론트엔드 |
 
 > 프론트엔드는 **Gateway(8080)만** 호출합니다. 개별 서비스 포트를 직접 호출하지 않습니다.
+
+`course-service`(8082) · `enrollment-service`(8083)는 강의 템플릿에서 남은 서비스입니다.
+이 프로젝트의 도메인과 무관하며, 나중에 정리 대상입니다.
+
+### API Gateway 라우트를 추가하는 방법
+
+`api-gateway`는 소스가 없는 프리빌트 이미지(`msa-lecture/api-gateway:1.0`)입니다.
+Spring Boot가 작업 디렉터리의 `./config/application.yml`을 jar 내부 설정보다 먼저 읽는 점을 이용해,
+[`msa-MyService/api-gateway-config/application.yml`](msa-MyService/api-gateway-config/application.yml)을
+`/app/config`로 마운트해 라우트를 확장합니다. 이미지를 다시 만들 필요가 없습니다.
+
+> **주의**: `spring.cloud.gateway.routes`는 리스트라서 **우선순위가 높은 소스가 통째로 이깁니다.**
+> 일부만 적으면 나머지 라우트가 전부 사라집니다. 라우트를 추가할 때는 그 파일의 기존 항목을
+> 그대로 둔 채 뒤에 붙이세요.
+
+인증은 그대로 동작합니다. 게이트웨이의 `JwtAuthenticationFilter`가 `GlobalFilter`라
+라우트를 새로 추가해도 `X-User-Id` / `X-User-Email` / `X-User-Role`이 자동 주입됩니다.
+
+### 데모 원료 데이터
+
+`material-service`는 `materials` 테이블이 **비어 있을 때만** 원료 10건을 자동 적재합니다
+(`config/DataSeeder.java`). 이미 데이터가 있으면 아무것도 하지 않으므로 재기동해도 중복되지 않습니다.
+끄려면 `app.seed.enabled=false`로 실행하세요.
 
 ---
 

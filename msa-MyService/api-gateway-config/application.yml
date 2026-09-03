@@ -1,0 +1,91 @@
+# =============================================================================
+# API Gateway 라우트 오버라이드
+# -----------------------------------------------------------------------------
+# api-gateway 는 프리빌트 이미지(msa-lecture/api-gateway:1.0)라서 소스가 없다.
+# Spring Boot 는 작업 디렉터리의 ./config/application.yml 을 jar 내부 설정보다
+# 우선 적용하므로, 이 파일을 /app/config 로 마운트해 라우트를 확장한다.
+# (docker-compose.yml 의 api-gateway volumes 참고)
+#
+# 주의: spring.cloud.gateway.routes 는 "리스트"라서 우선순위가 가장 높은 소스가
+#       통째로 이깁니다. 일부만 적으면 나머지 라우트가 사라지므로,
+#       기존 6개를 그대로 옮겨 적고 뒤에 새 라우트를 추가했습니다.
+#       라우트를 늘릴 때는 반드시 이 파일 전체를 유지한 채 추가하세요.
+#
+# 인증은 그대로 동작합니다. 게이트웨이의 JwtAuthenticationFilter 는 GlobalFilter 라
+# 라우트를 새로 추가해도 X-User-Id / X-User-Email / X-User-Role 이 자동 주입됩니다.
+# =============================================================================
+
+spring:
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+
+      routes:
+        # --- 이하 6개는 이미지 내장 설정과 동일 ---
+
+        # Auth Server (OAuth2 / OIDC / Login)
+        - id: auth-server
+          uri: lb://auth-server
+          predicates:
+            - Path=/oauth2/**,/login,/login/**,/logout,/userinfo,/error,/default-ui.css,/favicon.ico,/.well-known/openid-configuration,/.well-known/oauth-authorization-server
+          filters:
+            - RewritePath=/(?<segment>.*), /${segment}
+            - PreserveHostHeader
+
+        # User Service
+        - id: user-service
+          uri: lb://user-service
+          predicates:
+            - Path=/api/users/**
+          filters:
+            - RewritePath=/api/users/(?<segment>.*), /api/users/${segment}
+
+        # Course Service
+        - id: course-service
+          uri: lb://course-service
+          predicates:
+            - Path=/api/courses/**
+          filters:
+            - RewritePath=/api/courses/(?<segment>.*), /api/courses/${segment}
+
+        # Enrollment Service
+        - id: enrollment-service
+          uri: lb://enrollment-service
+          predicates:
+            - Path=/api/enrollments/**
+          filters:
+            - RewritePath=/api/enrollments/(?<segment>.*), /api/enrollments/${segment}
+
+        # Payment Service
+        - id: payment-service
+          uri: lb://payment-service
+          predicates:
+            - Path=/api/payments/**
+          filters:
+            - RewritePath=/api/payments/(?<segment>.*), /api/payments/${segment}
+
+        # Recommend Service (FastAPI)
+        - id: recommend-service
+          uri: lb://recommend-service
+          predicates:
+            - Path=/api/recommend/**
+          filters:
+            - RewritePath=/api/recommend/(?<segment>.*), /api/recommend/${segment}
+
+        # --- 원료의약품 수급 매칭 플랫폼에서 추가한 라우트 ---
+        # 경로를 그대로 전달하므로 RewritePath(항등 변환)는 붙이지 않는다.
+
+        # Material Service — 원료 카탈로그 / 공급 품목
+        - id: material-service
+          uri: lb://material-service
+          predicates:
+            - Path=/api/materials/**
+
+        # Order Service — 조달 주문 / 수주 관리
+        - id: order-service
+          uri: lb://order-service
+          predicates:
+            - Path=/api/orders/**

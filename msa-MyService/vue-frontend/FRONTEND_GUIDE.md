@@ -214,12 +214,29 @@ auth-server의 `DataInitializer`가 최초 기동 시 자동 생성한다.
 ## 8. 백엔드에 요청할 사항 (Sprint 1)
 
 - [x] `User.UserRole` = `BUYER` / `SUPPLIER`, `companyName`·`businessNumber`·`gmpCertified` 필드 **(완료)**
-- [ ] `Material` 엔티티: `materialCode`, `casNumber`, `unit`, `availableCapacity`, `leadTimeDays`, `certifications`, `country`
-- [ ] 목록 API 응답을 페이징 래퍼(`content` / `totalElements` / `totalPages`)로 통일
-- [ ] `GET /api/materials/code/{materialCode}/suppliers` 신규 (Ep-01 US1)
-- [ ] `PATCH /api/materials/{id}/capacity` 신규 (Ep-02 US2)
-- [ ] `GET /api/materials/my`, `GET /api/inventories/my`, `GET /api/orders/my` — 모두 `X-User-Id` 기준
+- [x] `Material` 엔티티: `materialCode`, `casNumber`, `unit`, `availableCapacity`, `leadTimeDays`, `certifications`, `country` **(완료 · material-service)**
+- [x] `GET /api/materials/code/{materialCode}/suppliers` (Ep-01 US1) **(완료)**
+- [x] `PATCH /api/materials/{id}/capacity` (Ep-02 US2) **(완료)**
+- [x] `GET /api/materials/my`, `GET /api/orders/my` — `X-User-Id` 기준 **(완료)**
+- [x] `POST /api/orders`, `GET /api/orders/{id}`, `GET /api/orders/{id}/status`, `GET /api/orders/supplier` **(완료 · order-service)**
+- [x] Gateway 라우팅: `/api/materials/**`, `/api/orders/**` **(완료)**
+- [ ] `GET /api/inventories/my`, `POST /api/inventories`, `PATCH /api/inventories/{id}/stock`
 - [ ] `GET /api/inventories/alerts` — 부족 감지 스케줄러 결과 (Ep-02 US1)
 - [ ] `GET /api/recommend` — 예측 수요 + 추천 공장을 한 응답으로
-- [ ] 에러 응답을 `{ success:false, message, data:null }` 포맷으로 통일 (message는 한글)
-- [ ] Gateway 라우팅: `/api/materials/**`, `/api/inventories/**`, `/api/orders/**`, `/api/payments/**`, `/api/recommend/**`
+- [ ] `POST /api/payments` 결제 완료 시 `POST /api/orders/internal/{id}/confirm` 호출 → 주문이 CONFIRMED 로 바뀐다
+- [ ] Gateway 라우팅: `/api/inventories/**`
+- [x] 목록 API 응답을 페이징 래퍼(`content` / `totalElements` / `totalPages`)로 통일 **(materials·orders 완료)**
+- [x] 에러 응답을 `{ success:false, message, data:null }` 포맷으로 통일 **(materials·orders 완료)**
+
+### 이미 만들어 둔 서비스에서 참고할 점
+
+`material-service` / `order-service`가 규약의 기준입니다. 남은 서비스도 같은 방식으로 맞춰 주세요.
+
+- **역할 헤더는 그대로 쓰면 안 됩니다.** 인증 서버가 `users.role`(STUDENT / INSTRUCTOR)을 JWT에 싣기
+  때문에 `X-User-Role`로는 `BUYER` / `SUPPLIER`가 오지 않습니다.
+  `support/CallerRole.java`처럼 두 표기를 모두 받아 정규화하세요.
+- **내부 API는 경로만으로 못 막습니다.** 게이트웨이가 `/api/{도메인}/**`를 통째로 넘기고
+  discovery locator도 켜져 있어, 로그인한 사용자면 누구나 `/internal/**`을 호출할 수 있습니다.
+  `config/InternalApiInterceptor.java`처럼 `X-Internal-Key`를 요구하세요.
+- **금액·단가는 클라이언트에서 받지 않습니다.** `order-service`는 `materialId`만 받고
+  단가·공급사는 `material-service`에서 조회해 주문 시점 값으로 저장합니다.
