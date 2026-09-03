@@ -1,0 +1,70 @@
+flowchart TB
+    subgraph L1["1. 화면 계층 · .vue — 디자인 교체 대상"]
+        direction LR
+        V_AUTH["LoginView<br/>CallbackView<br/>MyPageView"]
+        V_MAT["material/<br/>4개 화면"]
+        V_INV["inventory/<br/>2개 화면"]
+        V_ORD["order/<br/>3개 화면"]
+        V_PAY["payment/<br/>1개 화면"]
+        V_REC["recommend/<br/>1개 화면"]
+    end
+
+    subgraph L2["2. 상태 계층 — 디자인과 무관, 재사용됨"]
+        direction LR
+        STORE["store/auth.js<br/>토큰 · 역할 BUYER SUPPLIER"]
+        ASYNC["composables/useAsync.js<br/>loading · error · data"]
+    end
+
+    subgraph L3["3. API 계층 · api/*.js — URL은 여기에만 존재"]
+        direction LR
+        A_USER["user.js"]
+        A_MAT["material.js"]
+        A_INV["inventory.js"]
+        A_ORD["order.js"]
+        A_PAY["payment.js"]
+        A_REC["recommend.js"]
+    end
+
+    AXIOS["api/index.js<br/>axios 인스턴스<br/>Authorization 자동 첨부 · 401 처리 · unwrap"]
+    PROXY["Vite proxy<br/>localhost 3000"]
+    GW["API Gateway 8080<br/>JWT 검증 후 X-User-Id 주입"]
+
+    subgraph BE["백엔드 마이크로서비스"]
+        direction LR
+        S_USER["user-service<br/>8081"]
+        S_MAT["material-service<br/>8082"]
+        S_ORD["order-service<br/>8083"]
+        S_PAY["payment-service<br/>8084"]
+        S_REC["recommend-service<br/>8085"]
+    end
+
+    V_AUTH --> STORE
+    V_MAT --> ASYNC
+    V_INV --> ASYNC
+    V_ORD --> ASYNC
+    V_PAY --> ASYNC
+    V_REC --> ASYNC
+
+    STORE --> A_USER
+    ASYNC --> A_MAT
+    ASYNC --> A_INV
+    ASYNC --> A_ORD
+    ASYNC --> A_PAY
+    ASYNC --> A_REC
+
+    A_USER --> AXIOS
+    A_MAT --> AXIOS
+    A_INV --> AXIOS
+    A_ORD --> AXIOS
+    A_PAY --> AXIOS
+    A_REC --> AXIOS
+
+    STORE -. "accessToken 주입" .-> AXIOS
+    AXIOS -. "401 발생 시 logout" .-> STORE
+
+    AXIOS --> PROXY --> GW
+    GW --> S_USER
+    GW --> S_MAT
+    GW --> S_ORD
+    GW --> S_PAY
+    GW --> S_REC

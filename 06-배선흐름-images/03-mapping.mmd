@@ -1,0 +1,32 @@
+flowchart LR
+    subgraph OWN["담당 · 프론트엔드 본인"]
+        MY1["LoginView"] --> MF1["userApi.register"] --> ME1["POST /api/users/register"]
+        MY2["CallbackView"] --> MF2["authApi.exchangeCode"] --> ME2["POST /oauth2/token"]
+        MY3["MyPageView"] --> MF3["userApi.getMe<br/>userApi.getById"] --> ME3["GET /api/users/me<br/>GET /api/users/id"]
+    end
+
+    subgraph MAT["담당 · material 팀원"]
+        T1["MaterialListView"] --> F1["materialApi.list"] --> E1["GET /api/materials"]
+        T2["MaterialDetailView"] --> F2["materialApi.get<br/>materialApi.suppliersByCode"] --> E2["GET /api/materials/id<br/>GET /api/materials/code/.../suppliers"]
+        T3["MaterialFormView"] --> F3["materialApi.create<br/>materialApi.update"] --> E3["POST /api/materials<br/>PUT /api/materials/id"]
+        T4["SupplierMaterialsView"] --> F4["materialApi.my<br/>updateCapacity<br/>remove"] --> E4["GET /api/materials/my<br/>PATCH /api/materials/id/capacity<br/>DELETE /api/materials/id"]
+    end
+
+    subgraph INV["담당 · inventory 팀원"]
+        T5["InventoryListView"] --> F5["inventoryApi.create<br/>my · updateStock"] --> E5["POST /api/inventories<br/>GET /api/inventories/my<br/>PATCH /api/inventories/id/stock"]
+        T6["InventoryAlertView"] --> F6["inventoryApi.alerts"] --> E6["GET /api/inventories/alerts"]
+    end
+
+    subgraph ORD["담당 · order 팀원"]
+        T7["OrderListView"] --> F7["orderApi.create · my"] --> E7["POST /api/orders<br/>GET /api/orders/my"]
+        T8["OrderDetailView"] --> F8["orderApi.get<br/>orderApi.getStatus"] --> E8["GET /api/orders/id<br/>GET /api/orders/id/status"]
+        T9["SupplierOrderView"] --> F9["orderApi.supplier"] --> E9["GET /api/orders/supplier"]
+    end
+
+    subgraph PAY["담당 · payment 팀원"]
+        T10["PaymentListView"] --> F10["paymentApi.create · my"] --> E10["POST /api/payments<br/>GET /api/payments/my"]
+    end
+
+    subgraph REC["담당 · recommend 팀원"]
+        T11["RecommendView"] --> F11["recommendApi.get"] --> E11["GET /api/recommend"]
+    end

@@ -1,0 +1,42 @@
+sequenceDiagram
+    autonumber
+    actor U as 사용자
+    participant LV as LoginView.vue
+    participant AS as store/auth.js
+    participant AUTH as auth-server 9000
+    participant CV as CallbackView.vue
+    participant UA as api/user.js
+    participant AX as api/index.js
+    participant GW as API Gateway 8080
+    participant US as user-service 8081
+
+    Note over U,US: 회원가입 — POST /api/users/register
+    U->>LV: 회원가입 폼 제출
+    LV->>AS: register 호출
+    AS->>UA: userApi.register
+    UA->>AX: POST /api/users/register
+    AX->>GW: 인증 헤더 없이 전송
+    GW->>US: 라우팅
+    US-->>LV: 201 Created 후 로그인 화면 전환
+
+    Note over U,US: 로그인 — OAuth2 Authorization Code Flow
+    U->>LV: 로그인 버튼
+    LV->>AS: redirectToLogin
+    AS->>AUTH: GET /oauth2/authorize 브라우저 이동
+    AUTH-->>CV: /callback?code=xxx 리다이렉트
+    CV->>AS: handleCallback with code
+    AS->>AUTH: POST /oauth2/token
+    AUTH-->>AS: access_token
+    AS->>AS: sessionStorage 저장
+
+    Note over U,US: 내 정보 — GET /api/users/me
+    AS->>UA: userApi.getMe
+    UA->>AX: GET /api/users/me
+    AX->>AX: Authorization Bearer 자동 첨부
+    AX->>GW: 요청 전달
+    GW->>GW: JWT 검증 후 X-User-Id 주입
+    GW->>US: GET /api/users/me
+    US-->>AX: success message data 래퍼
+    AX-->>AS: unwrap 후 data 반환
+    AS->>AS: isBuyer / isSupplier 결정
+    AS-->>U: 역할별 홈으로 이동

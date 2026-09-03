@@ -1,0 +1,23 @@
+flowchart TB
+    START(["재고 부족 발생"]) --> A1["InventoryAlertView<br/>GET /api/inventories/alerts"]
+    A1 -->|"공급처 찾기 클릭<br/>query materialCode quantity 전달"| A2["RecommendView<br/>GET /api/recommend"]
+    A1 -.->|"원료 상세에서도 진입 가능"| B2["MaterialDetailView<br/>GET /api/materials/code/.../suppliers"]
+
+    A2 --> A3{"공급 가능 공장<br/>존재 여부"}
+    B2 --> A3
+    A3 -->|"없음 · totalCount 0"| A4["빈 상태 안내<br/>필요 수량 조정 유도"]
+    A3 -->|"있음"| A5["조달 신청 버튼<br/>router.push /orders"]
+
+    A5 --> A6["OrderListView<br/>POST /api/orders"]
+    A6 --> A7["주문 PENDING 생성<br/>Sprint 1은 여기서 종료"]
+
+    A7 --> A8["PaymentListView<br/>POST /api/payments"]
+    A8 --> A9["payment-service<br/>Kafka payment.completed 발행"]
+    A9 --> A10["order-service 구독<br/>주문 CONFIRMED 전환"]
+    A10 --> A11["material-service<br/>availableCapacity 차감"]
+
+    A7 --> A12["OrderDetailView<br/>GET /api/orders/id/status<br/>5초 폴링"]
+    A10 -.->|"상태 변경 감지"| A12
+    A12 --> A13(["CONFIRMED 도달 시 폴링 중단"])
+
+    A11 --> A14["SupplierOrderView<br/>GET /api/orders/supplier"]

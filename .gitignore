@@ -1,0 +1,30 @@
+# ===== 대용량 바이너리 (GitHub 100MB 제한 초과) =====
+*.tar
+*.zip
+msa-lecture-images.part.*
+
+# ===== 강의 교재 / 가이드 PDF (제3자 저작물) =====
+*.pdf
+
+# ===== 원본 실습 템플릿 (참고용 로컬 사본, 저장소에는 포함하지 않음) =====
+msa-lecture/
+
+# ===== 의존성 =====
+node_modules/
+
+# ===== 빌드 산출물 =====
+build/
+bin/
+dist/
+out/
+.gradle/
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+
+# ===== IDE / OS =====
+.DS_Store
+.idea/
+.vscode/
+*.iml
+*.log

@@ -1,0 +1,81 @@
+/* =============================================================
+   임시 기본 스타일 (디자인 이전 단계)
+   - 기능 검증용 최소 스타일만 둔다.
+   - 디자인 확정 시 이 파일만 교체하면 되도록, 컴포넌트에는
+     scoped style을 두지 않고 여기 클래스만 사용한다.
+   ============================================================= */
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Malgun Gothic', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #222;
+  background: #fafafa;
+}
+
+a { color: #1a4fd6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* --- 레이아웃 --- */
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  background: #fff;
+  border-bottom: 1px solid #ddd;
+  flex-wrap: wrap;
+}
+.app-header .logo { font-weight: 700; font-size: 16px; color: #222; }
+.app-header .nav { display: flex; gap: 12px; flex-wrap: wrap; }
+.app-header .user-area { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.app-main { max-width: 1100px; margin: 0 auto; padding: 24px 20px 60px; }
+
+.page-title { font-size: 20px; margin: 0 0 4px; }
+.page-desc { color: #666; margin: 0 0 20px; }
+.section { background: #fff; border: 1px solid #e0e0e0; padding: 16px; margin-bottom: 16px; }
+.section-title { font-size: 15px; font-weight: 700; margin: 0 0 12px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+
+/* --- 폼 --- */
+.form-group { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+.form-label { font-size: 13px; color: #555; }
+input, select, textarea {
+  padding: 7px 9px; border: 1px solid #bbb; background: #fff;
+  font-size: 14px; font-family: inherit;
+}
+input:focus, select:focus, textarea:focus { outline: 2px solid #1a4fd6; outline-offset: -1px; }
+
+button {
+  padding: 7px 14px; border: 1px solid #1a4fd6; background: #1a4fd6; color: #fff;
+  font-size: 14px; font-family: inherit; cursor: pointer;
+}
+button:hover:not(:disabled) { opacity: 0.85; }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+button.secondary { background: #fff; color: #1a4fd6; }
+button.danger { background: #fff; color: #c62828; border-color: #c62828; }
+
+/* --- 표 --- */
+table { width: 100%; border-collapse: collapse; background: #fff; }
+th, td { border: 1px solid #e0e0e0; padding: 8px 10px; text-align: left; font-size: 13px; }
+th { background: #f4f4f4; font-weight: 600; }
+
+/* --- 상태 표시 --- */
+.loading { padding: 20px; color: #666; }
+.error-msg { padding: 10px; border: 1px solid #e57373; background: #fdecea; color: #c62828; margin-bottom: 12px; }
+.success-msg { padding: 10px; border: 1px solid #81c784; background: #edf7ed; color: #2e7d32; margin-bottom: 12px; }
+.empty { padding: 30px; text-align: center; color: #888; border: 1px dashed #ccc; background: #fff; }
+.badge { display: inline-block; padding: 1px 6px; border: 1px solid #999; font-size: 12px; }
+
+/* --- 팀원 구현 대기 영역 표시 (디자인 단계에서 제거) --- */
+.todo-box {
+  border: 1px dashed #f0a202; background: #fffaf0;
+  padding: 12px; margin-bottom: 16px; font-size: 13px;
+}
+.todo-box h4 { margin: 0 0 6px; font-size: 13px; color: #a06800; }
+.todo-box ul { margin: 0; padding-left: 18px; }
+.todo-box code { background: #fff; border: 1px solid #eadfc8; padding: 0 3px; }
