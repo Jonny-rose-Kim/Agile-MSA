@@ -1,1 +1,11 @@
+pluginManagement {
+    repositories {
+        // Maven Central(repo.maven.apache.org)이 429 Too Many Requests를 반환할 때를 대비한 미러.
+        // 팀원이 같은 네트워크(동일 공인 IP)에서 동시에 빌드하면 쉽게 rate limit에 걸린다.
+        maven { url = uri('https://maven-central.storage-download.googleapis.com/maven2/') }
+        gradlePluginPortal()
+        mavenCentral()
+    }
+}
+
 rootProject.name = 'enrollment-service'

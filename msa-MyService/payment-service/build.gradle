@@ -14,6 +14,8 @@ java {
 }
 
 repositories {
+    // Maven Central 429 대비: 미러를 먼저 조회한다
+    maven { url = uri('https://maven-central.storage-download.googleapis.com/maven2/') }
     mavenCentral()
 }
 
