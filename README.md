@@ -148,7 +148,20 @@ services:
 
 ### 빌드 중 `429 Too Many Requests`
 
-Maven Central의 일시적 요청 제한입니다. 잠시 후 `docker compose build`를 다시 실행하세요.
+Maven Central(`repo.maven.apache.org`)의 요청 제한입니다.
+**같은 네트워크를 쓰는 팀원들은 공인 IP가 하나로 묶여** 동시에 빌드하면 금방 한도에 걸립니다.
+
+대응은 이미 적용되어 있습니다. 각 서비스의 `settings.gradle`·`build.gradle`에
+Google 미러(`maven-central.storage-download.googleapis.com`)를 우선 저장소로 등록해 두었습니다.
+그래도 429가 뜬다면 아래를 확인하세요.
+
+```bash
+git pull                      # 미러 설정이 반영된 최신 코드인지 확인
+docker compose build          # --no-cache 를 붙이지 말 것
+```
+
+> `--no-cache`는 매번 의존성 전체를 다시 받아 429를 유발합니다.
+> 빌드가 꼬였을 때만 쓰고, 평소에는 붙이지 마세요.
 
 ### `users` 테이블의 `role` 컬럼에 BUYER/SUPPLIER를 넣지 마세요
 

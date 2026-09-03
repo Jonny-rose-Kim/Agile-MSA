@@ -15,8 +15,10 @@ docker load -i infra-images.tar
 # msa-lecture/auth-server:1.0 등 태그 확인
 docker images
 
-## 프로젝트 루트에서 (초기 트러블슈팅/리빌드 고려, 캐시 없이 빌드, 컨테이너는 묶어서 백그라운드로 실행)
-docker compose build --no-cache
+## 프로젝트 루트에서
+## ⚠️ --no-cache 는 의존성을 매번 전부 다시 받아 Maven Central 429를 유발합니다.
+##    평소에는 붙이지 말고 `docker compose build` 만 실행하세요.
+docker compose build
 docker compose up -d
 
 ## 또는 한줄로
