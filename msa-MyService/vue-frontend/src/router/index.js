@@ -3,12 +3,13 @@ import { useAuthStore } from '@/store/auth.js'
 
 /**
  * meta.roles: 접근 가능한 역할 목록. 비어 있으면 로그인만 확인한다.
+ * meta.flush: 본문 최대폭·여백을 없앤 전체화면 레이아웃(랜딩·인증 화면 전용).
  * 화면을 추가할 때 라우트만 등록하면 권한 가드가 자동 적용된다.
  */
 const routes = [
-  { path: '/', name: 'Landing', component: () => import('@/views/LandingView.vue') },
-  { path: '/login', name: 'Login', component: () => import('@/views/LoginView.vue'), meta: { guestOnly: true } },
-  { path: '/callback', name: 'Callback', component: () => import('@/views/CallbackView.vue') },
+  { path: '/', name: 'Landing', component: () => import('@/views/LandingView.vue'), meta: { flush: true } },
+  { path: '/login', name: 'Login', component: () => import('@/views/LoginView.vue'), meta: { guestOnly: true, flush: true } },
+  { path: '/callback', name: 'Callback', component: () => import('@/views/CallbackView.vue'), meta: { flush: true } },
 
   // --- /api/materials --- 담당: 팀원
   { path: '/materials', name: 'MaterialList', component: () => import('@/views/material/MaterialListView.vue'), meta: { requiresAuth: true } },
