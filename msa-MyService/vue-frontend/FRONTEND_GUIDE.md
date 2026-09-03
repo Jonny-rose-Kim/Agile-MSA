@@ -96,7 +96,93 @@ auth.isSupplier   // 공급 공장
 ### (5) 빈 결과는 에러가 아니다
 `totalCount === 0`, 빈 배열은 정상 응답이다. `.empty` 클래스로 안내 문구를 렌더링한다.
 
-## 6. 반드시 지켜야 할 제약 — users 테이블의 `role` 컬럼
+## 6. 디자인 시스템 — 마크업만 바꿔 화면을 만든다
+
+모든 스타일은 `src/assets/styles/global.css` **한 파일**에 있다.
+`.vue` 파일에는 `<style scoped>`를 **두지 않는다.** 색·간격·모서리를 바꾸려면
+그 파일 맨 위 `:root` 토큰만 고치면 앱 전체가 따라 바뀐다.
+
+### 화면 한 장의 뼈대
+
+```html
+<div class="page-head">
+  <div class="page-head__text">
+    <h1 class="page-title">화면 제목</h1>
+    <p class="page-desc">한 줄 설명</p>
+  </div>
+  <div class="page-head__actions">
+    <button type="button" class="btn btn--secondary">새로고침</button>
+  </div>
+</div>
+
+<div class="stack">          <!-- 세로 20px 간격 -->
+  <section class="card">
+    <header class="card__head">
+      <div>
+        <h2 class="card__title">섹션 제목</h2>
+        <p class="card__desc">보조 설명</p>
+      </div>
+    </header>
+    <div class="card__body"> ... </div>
+    <div class="card__foot"> ... </div>   <!-- 선택 -->
+  </section>
+</div>
+```
+
+### 자주 쓰는 클래스
+
+| 용도 | 클래스 |
+|---|---|
+| 버튼 | `btn` / `btn--secondary` / `btn--danger` / `btn--ghost` · 크기 `btn--sm` `btn--lg` `btn--block` |
+| 입력 | `field` > `field__label` + `input` \| `select` \| `textarea`, 힌트 `field__hint` |
+| 체크박스 | `<label class="check"><input type="checkbox"> 라벨</label>` |
+| 폼 배치 | `form-grid` (자동 다열) · 검색줄 `filter-bar` + `filter-bar__actions` · 입력 1~2개면 `filter-bar--start` |
+| 표 | `table` (`card__body--flush` 안에 넣는다) · 숫자 열 `num` · 동작 열 `actions-cell` |
+| 상세 | `dl.kv` > `dt` / `dd` |
+| 지표 타일 | `tiles` > `tile` > `tile__label` / `tile__value` / `tile__unit` / `tile__sub` |
+| 원료코드 | `code-tag` (모노스페이스 + 왼쪽 악센트 바) |
+| 인증·사유 | `chips` > `chip` |
+| 점수 막대 | `meter` > `meter__track` > `meter__fill` (+ `meter__value`) |
+| 알림 | `alert alert--error` / `--success` / `--info` |
+| 빈 상태 | `empty` > `empty__icon` / `empty__title` / `empty__desc` |
+| 로딩 | `skeleton-rows` > `skeleton` (목록) · `spinner` (버튼 안) |
+
+### 상태 색은 CSS가 정한다 — 매핑 코드를 쓰지 말 것
+
+배지와 행 색상은 **속성 선택자**로 결정된다. API 응답값을 그대로 꽂으면 된다.
+
+```html
+<span class="badge" :data-status="o.status">{{ o.status }}</span>
+<span class="badge" :data-severity="a.severity">{{ a.severity }}</span>
+
+<!-- 행 왼쪽 색 레일도 같은 방식 -->
+<tr v-for="o in items" :data-status="o.status"> ... </tr>
+```
+
+인식하는 값: `CONFIRMED` `ACTIVE` `PAID` `정상` `LOW`(초록) /
+`PENDING` `PROCESSING` `부족` `MEDIUM`(주황) /
+`CANCELLED` `FAILED` `INACTIVE` `HIGH` `CRITICAL`(빨강) / `BUYER` `SUPPLIER`(파랑).
+새 상태값이 생기면 JS가 아니라 `global.css`의 `.badge[data-status="..."]` 목록에 추가한다.
+
+### 표는 모바일에서 카드로 접힌다 — `data-label`을 반드시 붙인다
+
+860px 미만에서 표가 카드로 바뀐다. 이때 각 셀 왼쪽에 붙는 이름은
+`data-label` 속성에서 가져온다. **빠뜨리면 모바일에서 라벨 없는 값만 보인다.**
+
+```html
+<td data-label="원료코드"><span class="code-tag">{{ m.materialCode }}</span></td>
+<td data-label="단가" class="num">{{ formatNumber(m.unitPrice) }} 원</td>
+<td class="actions-cell">...</td>   <!-- 동작 열은 data-label 없이 둔다 -->
+```
+
+### 해도 되는 것 / 하면 안 되는 것
+
+- ✅ `<template>` 안의 태그·클래스는 자유롭게 바꾼다
+- ✅ 새 스타일이 필요하면 `global.css`의 `@layer components`에 추가한다
+- ❌ `.vue`에 `<style scoped>`를 넣지 않는다 (디자인이 파일마다 흩어진다)
+- ❌ 인라인 `style=""`로 색을 지정하지 않는다 (토큰을 바꿔도 안 따라온다)
+
+## 7. 반드시 지켜야 할 제약 — users 테이블의 `role` 컬럼
 
 `auth-server`는 **소스가 없는 사전 빌드 이미지**이고, user-service와 **같은 `users` 테이블**을
 `@Enumerated(EnumType.STRING)` + `enum Role { STUDENT, INSTRUCTOR }` 로 매핑한다.
@@ -125,7 +211,7 @@ auth-server의 `DataInitializer`가 최초 기동 시 자동 생성한다.
 | `student@lecture.com` | `password1234` | BUYER (제약사·연구실) |
 | `instructor@lecture.com` | `password1234` | SUPPLIER (공급 공장) |
 
-## 7. 백엔드에 요청할 사항 (Sprint 1)
+## 8. 백엔드에 요청할 사항 (Sprint 1)
 
 - [x] `User.UserRole` = `BUYER` / `SUPPLIER`, `companyName`·`businessNumber`·`gmpCertified` 필드 **(완료)**
 - [ ] `Material` 엔티티: `materialCode`, `casNumber`, `unit`, `availableCapacity`, `leadTimeDays`, `certifications`, `country`

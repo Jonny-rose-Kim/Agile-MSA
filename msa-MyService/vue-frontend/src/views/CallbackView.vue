@@ -1,10 +1,31 @@
 <template>
-  <div>
-    <div v-if="loading" class="loading">로그인 처리 중입니다...</div>
-    <div v-else-if="error" class="section">
-      <div class="error-msg">{{ error }}</div>
-      <div class="actions">
-        <button type="button" @click="$router.replace('/login')">로그인으로 돌아가기</button>
+  <div class="auth-main auth-main--full">
+    <div class="auth-panel u-center">
+      <template v-if="loading">
+        <div class="stack stack--center">
+          <span class="spinner spinner--lg" aria-hidden="true"></span>
+          <div>
+            <p class="auth-panel__title">로그인 처리 중입니다...</p>
+            <p class="auth-panel__desc">인가 코드를 토큰으로 교환하고 있습니다.</p>
+          </div>
+        </div>
+      </template>
+
+      <div v-else-if="error" class="card">
+        <div class="card__body stack">
+          <div class="alert alert--error" role="alert">
+            <svg class="alert__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" /><path d="M12 7.5v5M12 16h.01" />
+            </svg>
+            {{ error }}
+          </div>
+          <div class="actions">
+            <button type="button" class="btn btn--block" @click="$router.replace('/login')">
+              로그인으로 돌아가기
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
