@@ -305,19 +305,23 @@ services:
       - EUREKA_INSTANCE_HOST=recommend-service
       - JWT_ISSUER_URI=http://localhost:8080
       - JWK_SET_URI=http://auth-server:9000/oauth2/jwks
-      - ENROLLMENT_SERVICE_URL=http://enrollment-service:8083
-      - COURSE_SERVICE_URL=http://course-service:8082
-      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - MATERIAL_SERVICE_URL=http://material-service:8086
+      - ORDER_SERVICE_URL=http://order-service:8087
+      # 수요 예측의 근거가 되는 발주 이력이 아직 합성 데이터라 mock 으로 둔다.
+      # 실제 material/order 서비스를 호출하려면 false 로 바꾼다. (README 참고)
+      - MOCK_MODE=true
+      # llm 으로 바꾸고 OPENAI_API_KEY 를 주면 OpenAI + web_search 예측을 쓴다.
+      # 키가 없으면 합성 추세(SYNTHETIC_TREND)로 자동 폴백한다.
+      - FORECASTER=${FORECASTER:-mock}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
     depends_on:
       eureka-server:
         condition: service_healthy
       auth-server:
         condition: service_healthy
-      kafka:
-        condition: service_healthy
-      enrollment-service:
+      material-service:
         condition: service_started
-      course-service:
+      order-service:
         condition: service_started
     networks:
       - lecture-net
