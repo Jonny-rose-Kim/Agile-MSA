@@ -89,3 +89,9 @@ spring:
           uri: lb://order-service
           predicates:
             - Path=/api/orders/**
+
+        # Order Service — 보유 재고 / 부족 임계치 (재고 도메인도 order-service 가 담당)
+        - id: order-service-inventories
+          uri: lb://order-service
+          predicates:
+            - Path=/api/inventories/**
