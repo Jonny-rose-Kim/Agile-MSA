@@ -1,210 +1,261 @@
 # 원료의약품 수급 매칭 플랫폼
 
-재고 부족을 조기에 감지하고 공급 가능한 인증 공장을 즉시 찾아주는 MSA 기반 서비스.
+제약사·연구실이 보유 원료의 **재고 부족을 미리 감지**하고, 그 원료를 실제로 공급할 수 있는
+**GMP 인증 공장을 즉시 찾아 조달**하는 B2B 플랫폼입니다.
+
+Spring Boot 3 기반 MSA + Vue 3 SPA로 구현했습니다.
+Eureka 서비스 디스커버리, Spring Cloud Gateway, Spring Authorization Server(OAuth2),
+Kafka 이벤트, 서비스별 독립 데이터베이스를 사용합니다.
 
 ---
 
-## ⚠️ 먼저 확인 — 저장소만 클론해서는 실행되지 않습니다
+## 1. 실행 전 반드시 확인 — 저장소만 클론하면 실행되지 않습니다
 
-`auth-server`와 `api-gateway`는 **소스가 없는 사전 빌드 이미지**이고, 용량 문제로 저장소에서 제외했습니다.
-(GitHub 100MB 제한 초과) Docker Hub에서도 받을 수 없으므로 **이미지 tar 파일을 별도로 받아야 합니다.**
+`auth-server`와 `api-gateway` **두 개는 강의에서 제공한 프리빌트 이미지**이고 Docker Hub에 없습니다.
+이미지 tar 파일은 용량이 커서(343MB / 1.2GB) GitHub에 올릴 수 없어 저장소에서 제외했습니다.
 
-| 필요한 파일 | 용량 | 받는 곳 |
-|---|---|---|
-| `msa-lecture-images-arm64.tar` (Apple Silicon) | 1.2GB | 팀 공유 드라이브 / 실습 자료 |
-| `infra-images.tar` (Intel Mac · Windows) | 343MB | 팀 공유 드라이브 / 실습 자료 |
+**강의 자료의 이미지 tar 파일이 필요합니다.**
 
-> 둘 중 **하나만** 받으면 됩니다. `msa-MyService/` 폴더 안에 두세요.
-> mariadb, kafka는 Docker Hub에서 자동으로 받아집니다.
+| 파일 | 용량 | 대상 | 포함 이미지 |
+|---|---|---|---|
+| `infra-images.tar` | 343MB | Intel Mac / Windows (amd64) | auth-server, api-gateway |
+| `msa-lecture-images-arm64.tar` | 1.2GB | Apple Silicon (arm64) | 위 2개 + 나머지 전부 |
 
----
-
-## 사전 준비물
-
-| 항목 | 버전 | 비고 |
-|---|---|---|
-| Docker Desktop | 최신 | 실행 중이어야 함 |
-| Node.js | 20 이상 | 프론트엔드 개발 서버용 |
-| JDK | 불필요 | 도커 컨테이너 안에서 빌드됨 |
+나머지 9개 서비스는 이 저장소의 소스에서 직접 빌드됩니다.
 
 ---
 
-## 실행 순서
+## 2. 사전 준비물
+
+- Docker Desktop (Compose v2 포함) — **메모리 8GB 이상 할당 권장**
+- Node.js 20 이상
+- 포트 여유: `3000` `8080` `8081` `8083` `8084` `8085` `8086` `8087` `8761` `9000` `3379` `9092`
+
+---
+
+## 3. 실행 순서
 
 ```bash
 # 1) 클론
 git clone https://github.com/Jonny-rose-Kim/Agile-MSA.git
 cd Agile-MSA/msa-MyService
 
-# 2) 이미지 tar를 이 폴더(msa-MyService/)에 복사한 뒤 로드
-docker load -i msa-lecture-images-arm64.tar     # Apple Silicon
-# docker load -i infra-images.tar               # Intel Mac / Windows
+# 2) 강의 제공 이미지 tar를 이 폴더(msa-MyService/)에 복사한 뒤 로드
+docker load -i msa-lecture-images-arm64.tar   # Apple Silicon
+# docker load -i infra-images.tar             # Intel Mac / Windows
 
-# 3) 백엔드 빌드 및 기동 (첫 실행은 10분 이상 걸릴 수 있음)
-docker compose build
-docker compose up -d
+# 3) 백엔드 빌드 및 기동
+#    첫 실행은 Gradle 의존성 내려받느라 10분 이상 걸릴 수 있습니다.
+docker compose up -d --build
 
-# 4) 기동 확인 — 모든 서비스가 Eureka에 등록되면 준비 완료
-docker compose ps
+# 4) 기동 확인 — 8개 서비스가 모두 등록되면 준비 완료 (1~2분 소요)
 open http://localhost:8761
 
 # 5) 프론트엔드 (새 터미널)
-cd vue-frontend
+cd ../vue-frontend
 npm install
 npm run dev
 ```
 
-브라우저에서 **http://localhost:3000** 접속.
+> **기동 직후 1분간은 로그인이 503으로 실패할 수 있습니다.**
+> API Gateway가 Eureka 레지스트리를 갱신하는 주기 때문이며, 잠시 기다리면 정상화됩니다.
 
 ---
 
-## 테스트 계정
+## 4. 접속 주소
 
-`auth-server`가 최초 기동 시 자동 생성합니다. 회원가입 없이 바로 로그인할 수 있습니다.
-
-| 이메일 | 비밀번호 | 역할 |
+| 대상 | 주소 | 설명 |
 |---|---|---|
-| `student@lecture.com` | `password1234` | BUYER (제약사 · 연구실) |
-| `instructor@lecture.com` | `password1234` | SUPPLIER (공급 공장) |
-
-회원가입으로 새 계정을 만들 수도 있습니다. (계정 유형 BUYER / SUPPLIER 선택)
+| **프론트엔드** | **http://localhost:3000** | **여기서 시작하세요** |
+| 인증 서버 | http://localhost:8080/login | OAuth2 로그인 페이지 (직접 접속할 일은 없음) |
+| Eureka 대시보드 | http://localhost:8761 | 서비스 등록 현황 확인 |
+| Swagger UI | http://localhost:8086/swagger-ui.html | 서비스별 API 문서 (포트만 바꿔서 접근) |
 
 ---
 
-## 서비스 구성
+## 5. 테스트 계정
 
-| 서비스 | 포트 | 담당 도메인 |
-|---|---|---|
-| api-gateway | 8080 | 라우팅 · JWT 검증 · `X-User-Id` 주입 |
-| auth-server | 9000 | OAuth2 인가 · 토큰 발급 |
-| eureka-server | 8761 | 서비스 레지스트리 |
-| user-service | 8081 | 회원 · 권한 (BUYER / SUPPLIER) |
-| material-service | 8086 | 원료 카탈로그 · 공급 가능 공장 · 여유 생산능력 |
-| order-service | 8087 | 조달 주문 · 수주 관리 |
-| payment-service | 8084 | 조달 결제 (승인 후 `order.payment.completed` 발행) |
-| recommend-service | 8085 | AI 수요 예측 · 공장 추천 |
-| vue-frontend | 3000 | 프론트엔드 |
+`docker compose up` 시 자동으로 생성됩니다. 비밀번호는 둘 다 `password1234`입니다.
 
-> 프론트엔드는 **Gateway(8080)만** 호출합니다. 개별 서비스 포트를 직접 호출하지 않습니다.
+| 이메일 | 비밀번호 | 역할 | 로그인 후 첫 화면 |
+|---|---|---|---|
+| `student@lecture.com` | `password1234` | **제약사 · 연구실** (BUYER) | 원료 카탈로그 |
+| `instructor@lecture.com` | `password1234` | **공급 공장** (SUPPLIER) | 내 공급 품목 |
 
-`course-service`(8082) · `enrollment-service`(8083)는 강의 템플릿에서 남은 서비스입니다.
-이 프로젝트의 도메인과 무관하며, 나중에 정리 대상입니다.
+회원가입도 동작합니다. 계정 유형을 고르면 그에 맞는 메뉴가 나옵니다.
 
-### API Gateway 라우트를 추가하는 방법
+> 로그인은 인증 서버로 이동했다가 돌아오는 **OAuth2 Authorization Code Flow**입니다.
+> "로그인" 버튼을 누르면 `localhost:8080`으로 이동하는 것이 정상입니다.
 
-`api-gateway`는 소스가 없는 프리빌트 이미지(`msa-lecture/api-gateway:1.0`)입니다.
-Spring Boot가 작업 디렉터리의 `./config/application.yml`을 jar 내부 설정보다 먼저 읽는 점을 이용해,
-[`msa-MyService/api-gateway-config/application.yml`](msa-MyService/api-gateway-config/application.yml)을
-`/app/config`로 마운트해 라우트를 확장합니다. 이미지를 다시 만들 필요가 없습니다.
+---
 
-> **주의**: `spring.cloud.gateway.routes`는 리스트라서 **우선순위가 높은 소스가 통째로 이깁니다.**
-> 일부만 적으면 나머지 라우트가 전부 사라집니다. 라우트를 추가할 때는 그 파일의 기존 항목을
-> 그대로 둔 채 뒤에 붙이세요.
+## 6. 채점 시나리오 — 5분 안에 전 기능 확인하기
 
-인증은 그대로 동작합니다. 게이트웨이의 `JwtAuthenticationFilter`가 `GlobalFilter`라
-라우트를 새로 추가해도 `X-User-Id` / `X-User-Email` / `X-User-Role`이 자동 주입됩니다.
+**제약사 계정(`student@lecture.com`)으로 로그인**한 뒤 순서대로 따라가면 됩니다.
+데모용 원료 10건이 미리 들어 있습니다.
 
-### 결제 → 주문 확정 흐름
+### ① 원료 카탈로그 · 공급처 비교 — Ep-01 US1
 
-결제와 주문 확정은 동기 호출로 묶지 않고 Kafka 로 끊어 두었습니다.
-결제는 성공했는데 주문 확정이 실패했다고 해서 결제를 되돌릴 수는 없기 때문입니다.
+`원료 카탈로그` → `API-CEFA-500`(세파졸린나트륨) **상세** 클릭 → **공급처 찾기**
+
+같은 원료를 **두 공장이 다른 조건으로 공급**하는 것이 보입니다.
+
+| 공장 | 단가 | 리드타임 | 인증 |
+|---|---|---|---|
+| 한국API공장 | 42,000원 | 14일 | GMP, DMF |
+| 대한파마텍 | 39,500원 | 21일 | GMP |
+
+"싸지만 오래 걸리는 곳"과 "비싸지만 빠른 곳"을 비교해 고르는 것이 이 서비스의 핵심입니다.
+
+### ② 조달 신청 — Ep-01 US2
+
+`조달 주문` → 값이 채워져 있음 → **조달 신청**
+
+주문이 `PENDING`으로 생성됩니다. `원료 카탈로그`로 돌아가면
+**여유 생산능력이 주문한 수량만큼 줄어 있습니다.** (order-service → material-service 내부 연동)
+
+### ③ 재고 등록 · 부족 감지 — Ep-02 US1
+
+`재고 관리` → 원료코드 `EXC-LAC-200`, 현재 재고량 `100`, 부족 임계치 `5000` → **등록**
+
+임계치보다 재고가 적으므로 즉시 `부족`으로 표시됩니다.
+`부족 알림`으로 가면 심각도·부족량과 함께 잡혀 있습니다.
+(백그라운드 스케줄러가 60초마다 재검사합니다)
+
+### ④ 결제 · 주문 확정 — Sprint 2
+
+`결제 내역` → 결제 대기 주문번호가 미리 채워져 있음 → **결제하기**
+
+결제 후 `조달 주문`으로 이동하면 **몇 초 뒤 주문이 `CONFIRMED`로 바뀝니다.**
+동기 호출이 아니라 **Kafka 이벤트**(`order.payment.completed`)로 처리하기 때문에 시차가 있습니다.
+
+### ⑤ AI 수요 예측 · 공장 추천 — Ep-03
+
+`AI 추천` → 조건이 채워져 있음 → **조회**
+
+수요 증감률, 재고 소진 시뮬레이션(임계치 하회일·소진일), 권장 발주량,
+그리고 그 물량을 댈 수 있는 GMP 인증 공장이 함께 나옵니다.
+
+> 이 화면은 **데모 데이터로 동작합니다**(화면 상단에 명시). 수요 예측의 근거인 발주 이력이
+> 아직 합성 데이터라 `MOCK_MODE=true`가 기본입니다.
+> `FORECASTER=llm` + `OPENAI_API_KEY`를 주면 OpenAI 웹 검색 기반 예측으로 전환됩니다.
+
+### ⑥ 공급 공장 입장에서 보기
+
+**로그아웃 후 `instructor@lecture.com`으로 로그인**
+
+- `내 공급 품목` — 여유 생산능력을 표에서 바로 수정 (Ep-02 US2)
+- `수주 관리` — ②에서 넣은 주문이 구매처 이름과 함께 보입니다
+
+권한이 분리돼 있어 **다른 공장의 주문은 조회되지 않습니다.**
+
+---
+
+## 7. 서비스 구성
+
+| 서비스 | 포트 | 담당 도메인 | 데이터베이스 |
+|---|---|---|---|
+| api-gateway | 8080 | 라우팅 · JWT 검증 · `X-User-Id` 주입 | — |
+| auth-server | 9000 | OAuth2 인가 · 토큰 발급 | `lecture_db` |
+| eureka-server | 8761 | 서비스 레지스트리 | — |
+| user-service | 8081 | 회원 · 권한 (BUYER / SUPPLIER) | `lecture_db` |
+| material-service | 8086 | 원료 카탈로그 · 공급 가능 공장 · 여유 생산능력 | `material_db` |
+| order-service | 8087 | 조달 주문 · 재고 · 부족 감지 · 수주 관리 | `order_db` |
+| payment-service | 8084 | 조달 결제 · 결제 완료 이벤트 발행 | `payment_db` |
+| recommend-service | 8085 | AI 수요 예측 · 소진 시뮬레이션 · 공장 추천 | — (FastAPI) |
+| vue-frontend | 3000 | 프론트엔드 | — |
+
+프론트엔드는 **Gateway(8080)만** 호출합니다. 개별 서비스 포트를 직접 부르지 않습니다.
+
+`enrollment-service`(8083)는 강의 템플릿에서 남은 서비스로, 이 프로젝트 도메인과 무관합니다.
+
+### 서비스별 데이터베이스
+
+각 서비스가 자기 스키마만 소유합니다(`init-db/00_databases.sql`이 자동 생성).
+`lecture_db`를 공유하는 것은 `user-service`와 `auth-server`뿐인데,
+auth-server가 프리빌트 이미지라 같은 `users` 테이블을 봐야 해서 분리할 수 없습니다.
+
+### 결제 → 주문 확정 (비동기)
 
 ```
 POST /api/payments      payment-service : 주문 금액 확인 → 승인 → 이벤트 발행
         ↓  order.payment.completed (Kafka)
 order-service           : 주문 PENDING → CONFIRMED
         ↓
-주문 상세 화면           : 폴링으로 상태 변화를 감지
+주문 상세 화면           : 폴링으로 상태 변화 감지
 ```
 
-강의 템플릿의 `payment.completed` 와 토픽을 분리했습니다. 그쪽은 `enrollment-service` 가
-`courseId` 를 기대하며 소비하고 있어 이벤트 모양이 다릅니다.
-
-### 데모 원료 데이터
-
-`material-service`는 `materials` 테이블이 **비어 있을 때만** 원료 10건을 자동 적재합니다
-(`config/DataSeeder.java`). 이미 데이터가 있으면 아무것도 하지 않으므로 재기동해도 중복되지 않습니다.
-끄려면 `app.seed.enabled=false`로 실행하세요.
+동기 호출로 묶지 않은 이유는, 결제는 성공했는데 주문 확정이 실패했다고 해서
+결제를 되돌릴 수 없기 때문입니다. 이벤트로 끊어 각자 재시도할 수 있게 했습니다.
 
 ---
 
-## 담당 분배
+## 8. 담당 분배
 
-| 담당 API | 수정할 파일 |
+| 담당 | 영역 |
 |---|---|
-| `/api/users` · 로그인 전체 | `api/user.js`, `api/auth.js`, `store/auth.js`, `views/Login·Callback·MyPage` |
-| `/api/materials` | `api/material.js`, `views/material/` |
-| `/api/inventories` | `api/inventory.js`, `views/inventory/` |
-| `/api/orders` | `api/order.js`, `views/order/` |
-| `/api/payments` | `api/payment.js`, `views/payment/` |
-| `/api/recommend` | `api/recommend.js`, `views/recommend/` |
+| 김재환 | 프론트엔드 전체 · 로그인/회원가입(`/api/users`) · 조달 주문 · 결제 · 서비스 통합 |
+| 이서홍 | `material-service` (원료 카탈로그 · 공급 가능 공장) |
+| ljs65626 | `order-service` 재고 영역 (보유 재고 · 임계치 · 부족 감지 스케줄러) |
+| place0 | `recommend-service` (AI 수요 예측 · 소진 시뮬레이션 · 공급사 추천) |
 
-**담당 폴더 밖의 파일은 건드리지 않습니다.** 공통 파일(`api/index.js`, `store/auth.js`,
-`router/index.js`, `composables/useAsync.js`, `global.css`)은 프론트엔드 담당자에게 요청하세요.
+협업은 브랜치 → Pull Request → 리뷰 → 머지로 진행했습니다.
+같은 서비스를 두 사람이 각자 구현해 충돌한 건은 PR #4에서 서비스 단위로 정리했습니다.
 
 ---
 
-## 문서
+## 9. 문서
 
 | 문서 | 내용 |
 |---|---|
-| [05-API명세_요약.md](05-API명세_요약.md) | 프론트엔드가 호출하는 엔드포인트 전체 목록 (한 표) |
-| [05-API명세.md](05-API명세.md) | Request/Response 예시까지 포함한 상세 명세 |
-| [06-프론트엔드-API배선흐름.md](06-프론트엔드-API배선흐름.md) | API 호출 배선 흐름 다이어그램 |
-| [msa-MyService/vue-frontend/FRONTEND_GUIDE.md](msa-MyService/vue-frontend/FRONTEND_GUIDE.md) | 프론트엔드 코딩 규약 · role 컬럼 제약 |
+| [**조별 발표자료 (PDF)**](Agile+MSA_조별발표_3반_2조.pdf) | **3반 2조 최종 발표자료** |
+| [05-API명세.md](05-API명세.md) | 전체 API 상세 명세 (Sprint 1 전체 + Sprint 2 E2E) |
+| [05-API명세_요약.md](05-API명세_요약.md) | 엔드포인트 한 장 요약표 |
+| [06-프론트엔드-API배선흐름.md](06-프론트엔드-API배선흐름.md) | 화면 ↔ API 배선 흐름도 |
+| [vue-frontend/FRONTEND_GUIDE.md](msa-MyService/vue-frontend/FRONTEND_GUIDE.md) | 프론트엔드 구조 · 디자인 시스템 규약 |
+| [material-service/README.md](msa-MyService/material-service/README.md) | 원료 서비스 설계 |
+| [recommend-service/README.md](msa-MyService/recommend-service/README.md) | 수요 예측 알고리즘 · 환경변수 |
 
 ---
 
-## 트러블슈팅
+## 10. 트러블슈팅
 
 ### 로그인 버튼을 눌렀는데 "페이지를 로드하지 못함"
 
-백엔드가 떠 있지 않은 경우입니다. 로그인은 `http://localhost:8080/oauth2/authorize`로
-브라우저를 이동시키므로, Gateway가 없으면 브라우저 레벨 오류가 납니다.
+`auth-server`가 안 떠 있는 경우입니다. 로그인은 브라우저를 `localhost:8080`으로
+이동시키므로, 컨테이너가 없으면 브라우저 단계에서 실패합니다.
 
 ```bash
-docker compose ps                        # 컨테이너가 모두 Up 인지 확인
-curl -I http://localhost:8080/login      # 200이면 정상
+docker compose ps          # auth-server 가 Up 인지 확인
+docker compose logs auth-server
 ```
 
-### 포트 충돌 — `address already in use`
+프리빌트 이미지를 로드하지 않았다면 §1을 다시 확인하세요.
 
-다른 프로젝트가 같은 포트를 쓰고 있는 경우입니다.
+### 기동 직후 API가 503
 
-```bash
-lsof -i:8081                             # 점유 프로세스 확인
-```
-
-해당 앱을 종료하거나, `docker-compose.override.yml`을 만들어 호스트 포트만 바꿉니다.
-(이 파일은 `.gitignore`에 있어 팀원에게 전파되지 않습니다)
-
-```yaml
-services:
-  user-service:
-    ports: !override
-      - "8091:8081"
-```
+Eureka 레지스트리 갱신 대기입니다. 1분 정도 기다리면 해결됩니다.
+`http://localhost:8761`에서 서비스 8개가 모두 보이면 준비 완료입니다.
 
 ### 빌드 중 `429 Too Many Requests`
 
-Maven Central(`repo.maven.apache.org`)의 요청 제한입니다.
-**같은 네트워크를 쓰는 팀원들은 공인 IP가 하나로 묶여** 동시에 빌드하면 금방 한도에 걸립니다.
+Maven Central이 같은 공인 IP의 동시 빌드를 제한한 것입니다.
+Google 미러를 우선 조회하도록 설정해 뒀지만, 그래도 나면 잠시 후 다시 시도하세요.
+`--no-cache`는 붙이지 마세요. 매번 전부 다시 받아 429에 더 잘 걸립니다.
 
-대응은 이미 적용되어 있습니다. 각 서비스의 `settings.gradle`·`build.gradle`에
-Google 미러(`maven-central.storage-download.googleapis.com`)를 우선 저장소로 등록해 두었습니다.
-그래도 429가 뜬다면 아래를 확인하세요.
+### 포트 충돌 — `address already in use`
 
 ```bash
-git pull                      # 미러 설정이 반영된 최신 코드인지 확인
-docker compose build          # --no-cache 를 붙이지 말 것
+lsof -i :8080          # 점유 중인 프로세스 확인
 ```
 
-> `--no-cache`는 매번 의존성 전체를 다시 받아 429를 유발합니다.
-> 빌드가 꼬였을 때만 쓰고, 평소에는 붙이지 마세요.
+해당 앱을 종료하거나, `docker-compose.override.yml`로 호스트 포트만 바꿔 주세요.
 
-### `users` 테이블의 `role` 컬럼에 BUYER/SUPPLIER를 넣지 마세요
+### 완전히 초기화하고 다시 시작
 
-`auth-server`(사전 빌드 이미지)가 같은 `users` 테이블을 `enum Role { STUDENT, INSTRUCTOR }`로
-매핑합니다. `role` 컬럼에 다른 값이 들어가면 **전체 로그인이 깨집니다.**
-도메인 역할은 `user_role` 컬럼에 따로 저장하며, user-service가 자동으로 변환합니다.
-자세한 내용은 [FRONTEND_GUIDE.md](msa-MyService/vue-frontend/FRONTEND_GUIDE.md) 6장 참고.
+```bash
+docker compose down -v     # 볼륨까지 삭제 (데이터 초기화)
+docker compose up -d --build
+```
+
+데이터베이스와 시드 데이터가 자동으로 다시 만들어집니다.
