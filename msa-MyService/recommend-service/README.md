@@ -8,6 +8,11 @@
 
 엔드포인트는 `GET /api/recommend` **하나**다. (API Gateway가 `/api/recommend/**`만 이 서비스로 보낸다)
 
+> 기준일 기본값이 `2026-03-12`인 이유: 합성 발주 이력이 2025-07-14부터라
+> 90일 비교 구간 두 개(180일)가 모두 데이터 안에 들어오는 2026-01-10 이후여야 증감률이 나온다.
+> 한겨울은 합성 수요가 평상시의 2~3배까지 튀어 90일치 발주량이 공장 하나의 여유 생산능력을
+> 넘어서므로, 환절기가 "수요 증가 + 공급 가능"이 함께 성립하는 구간이다.
+
 ---
 
 ## 1. 엔드포인트
@@ -152,8 +157,9 @@ OpenAI가 준 `summary`를 그대로 쓰고, 소진 결과 한 문장을 템플�
 
 ## 7. mock 모드
 
-`material-service` / `order-service`가 아직 없어서 **기본이 `MOCK_MODE=true`**다.
-mock 데이터는 `app/data/mock_catalog.py` 한 곳에 모여 있다.
+`material-service`(8086) · `order-service`(8087)는 이제 있지만, **기본은 여전히 `MOCK_MODE=true`**다.
+수요 예측의 근거인 **발주 이력이 아직 합성 데이터**라서다. 실서비스에는 예측할 만한
+과거 주문이 쌓여 있지 않다. mock 데이터는 `app/data/mock_catalog.py` 한 곳에 모여 있다.
 
 > **여기 값은 전부 데모용 고정값이다.** 실제 공장·재고·거래 이력 조회 결과가 아니다.
 
@@ -164,13 +170,21 @@ mock 데이터는 `app/data/mock_catalog.py` 한 곳에 모여 있다.
 | 공급자 | 원료당 2~3곳. 국내 인증 / 인도 인증 / 중국 미인증 혼합 |
 | 과거 거래 | 195건. 공급자-원료 쌍 15개, 횟수 제각각, 전부 `2025-10-10` 이전 |
 
-두 서비스가 뜨면 compose에 아래만 넣으면 **코드 수정 없이** 실서비스로 붙는다.
+### `MOCK_MODE=false` 로 넘어가려면 남은 일
 
-```yaml
-- MOCK_MODE=false
-- MATERIAL_SERVICE_URL=http://material-service:8086
-- ORDER_SERVICE_URL=http://order-service:8087
-```
+compose에서 `MOCK_MODE=false`로 바꾸는 것만으로는 아직 안 된다.
+클라이언트가 기대하는 엔드포인트 중 없는 것이 있다.
+
+| 호출부 | 필요한 것 | 현재 |
+|---|---|---|
+| `material_client.get_material()` | `GET /api/materials/code/{code}` | 없음 (`/code/{code}/suppliers`만 있음) |
+| `material_client.get_candidates()` | `GET /api/materials/internal/candidates?materialCode=` | 없음 |
+| `material_client.list_materials()` | `GET /api/materials` 가 배열 | 페이징 래퍼(`content`)로 반환 |
+| `inventory_client.get_my_inventory()` | `GET /api/inventories/my` 가 배열 | 페이징 래퍼(`content`)로 반환 |
+| 〃 | 게이트웨이를 거치지 않는 호출의 인증 | order-service는 `X-User-Id` 헤더를 요구한다. 현재는 `Authorization`을 그대로 넘기고 있어 401이 난다 |
+
+`/internal/**` 을 쓰려면 `X-Internal-Key` 헤더도 함께 보내야 한다
+(`material-service/config/InternalApiInterceptor.java` 참고).
 
 ---
 
@@ -184,7 +198,7 @@ cp .env.example .env    # OPENAI_API_KEY 채우기
 
 | 변수 | 기본값 | 설명 |
 |---|---|---|
-| `FORECASTER` | `llm` | `llm` = OpenAI + web_search, `mock` = 합성 추세 |
+| `FORECASTER` | `mock` | `llm` = OpenAI + web_search, `mock` = 합성 추세. 키가 없으면 `llm`이어도 자동 폴백 |
 | `OPENAI_API_KEY` | (없음) | 미설정이면 자동으로 `SYNTHETIC_TREND` 폴백 |
 | `OPENAI_MODEL` | `gpt-4o` | |
 | `OPENAI_TIMEOUT` | `10` | 초. web_search는 9초 이상 걸리니 20~30 권장 |
@@ -194,8 +208,8 @@ cp .env.example .env    # OPENAI_API_KEY 채우기
 | `MOCK_MODE` | `true` | mock 데이터 사용 |
 | `MATERIAL_SERVICE_URL` | `http://material-service:8086` | |
 | `ORDER_SERVICE_URL` | `http://order-service:8087` | |
-| `DEMO_AS_OF` | (없음) | 데모용 고정 기준일. `asOf` 파라미터가 우선 |
-| `MOCK_CONFIDENCE` | (없음) | 켜면 `confidence`를 이 고정값으로 덮어쓴다 |
+| `DEMO_AS_OF` | `2026-03-12` | 데모용 고정 기준일. `asOf` 파라미터가 우선 |
+| `MOCK_CONFIDENCE` | `0.72` | `confidence`를 이 고정값으로 덮어쓴다. 합성 추세에는 신뢰도 근거가 없다 |
 | `RECOMMEND_MAX_COUNT` | `5` | 추천 공급사 최대 개수 |
 
 > ⚠️ Dockerfile이 `COPY . .`로 `.env`를 이미지에 굽는다. 로컬 데모 전용이며,

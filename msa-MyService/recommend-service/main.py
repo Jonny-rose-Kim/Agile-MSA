@@ -1,9 +1,10 @@
 import logging
-import py_eureka_client.eureka_client as eureka_client
 from contextlib import asynccontextmanager
+
+import py_eureka_client.eureka_client as eureka_client
 from fastapi import FastAPI
+
 from app.config.settings import settings
-from app.kafka.consumer import enrollment_consumer
 from app.router import recommend_router
 
 logging.basicConfig(
@@ -15,12 +16,9 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """앱 시작/종료 시 실행되는 이벤트"""
+    logger.info(f"[{settings.app_name}] 서비스 시작 "
+                f"(forecaster={settings.forecaster}, mock_mode={settings.mock_mode})")
 
-    # 시작 시
-    logger.info(f"[{settings.app_name}] 서비스 시작")
-
-    # Eureka 등록
     try:
         await eureka_client.init_async(
             eureka_server=settings.eureka_server_url,
@@ -30,31 +28,25 @@ async def lifespan(app: FastAPI):
         )
         logger.info("[Eureka] 서비스 등록 완료")
     except Exception as e:
+        # Eureka 가 없어도 서비스 자체는 떠야 한다 (로컬 단독 실행)
         logger.warning(f"[Eureka] 등록 실패 (개발 환경에서 무시 가능): {e}")
-
-    # Kafka Consumer 시작
-    try:
-        enrollment_consumer.start()
-        logger.info("[Kafka] Consumer 시작 완료")
-    except Exception as e:
-        logger.warning(f"[Kafka] Consumer 시작 실패: {e}")
 
     yield
 
-    # 종료 시
     logger.info(f"[{settings.app_name}] 서비스 종료")
-    enrollment_consumer.stop()
-    await eureka_client.stop_async()
+    try:
+        await eureka_client.stop_async()
+    except Exception:
+        pass
 
 
 app = FastAPI(
     title="Recommend Service",
-    description="온라인 강의 플랫폼 - 규칙 기반 강의 추천 서비스",
-    version="0.0.1",
-    lifespan=lifespan
+    description="원료의약품 수급 매칭 플랫폼 — AI 수요 예측 · 소진 시뮬레이션 · 공급사 추천",
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
-# 라우터 등록
 app.include_router(recommend_router.router)
 
 
@@ -65,9 +57,4 @@ async def health():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=settings.app_port,
-        reload=True
-    )
+    uvicorn.run("main:app", host="0.0.0.0", port=settings.app_port, reload=True)

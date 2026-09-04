@@ -220,11 +220,11 @@ auth-server의 `DataInitializer`가 최초 기동 시 자동 생성한다.
 - [x] `GET /api/materials/my`, `GET /api/orders/my` — `X-User-Id` 기준 **(완료)**
 - [x] `POST /api/orders`, `GET /api/orders/{id}`, `GET /api/orders/{id}/status`, `GET /api/orders/supplier` **(완료 · order-service)**
 - [x] Gateway 라우팅: `/api/materials/**`, `/api/orders/**` **(완료)**
-- [ ] `GET /api/inventories/my`, `POST /api/inventories`, `PATCH /api/inventories/{id}/stock`
-- [ ] `GET /api/inventories/alerts` — 부족 감지 스케줄러 결과 (Ep-02 US1)
-- [ ] `GET /api/recommend` — 예측 수요 + 추천 공장을 한 응답으로
+- [x] `GET /api/inventories/my`, `POST /api/inventories`, `PATCH /api/inventories/{id}/stock` **(완료 · order-service)**
+- [x] `GET /api/inventories/alerts` — 부족 감지 스케줄러 결과 (Ep-02 US1) **(완료)**
+- [x] `GET /api/recommend` — 예측 수요 + 소진 시뮬레이션 + 추천 공장 **(완료 · recommend-service)**
 - [ ] `POST /api/payments` 결제 완료 시 `POST /api/orders/internal/{id}/confirm` 호출 → 주문이 CONFIRMED 로 바뀐다
-- [ ] Gateway 라우팅: `/api/inventories/**`
+- [x] Gateway 라우팅: `/api/inventories/**` **(완료)**
 - [x] 목록 API 응답을 페이징 래퍼(`content` / `totalElements` / `totalPages`)로 통일 **(materials·orders 완료)**
 - [x] 에러 응답을 `{ success:false, message, data:null }` 포맷으로 통일 **(materials·orders 완료)**
 

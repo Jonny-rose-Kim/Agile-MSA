@@ -53,10 +53,12 @@ MOCK_INVENTORIES: Dict[str, dict] = {
 # --- 후보 공장 (material-service GET /api/materials/internal/candidates 대응)
 # 원료마다 2~3곳. 원산지·GMP를 섞어서 리스크 등급이 갈리게 구성했다.
 #   국내 인증(KR+GMP) / 인도 인증(IN+GMP) / 중국 미인증(CN+GMP 없음)
+# availableCapacity 는 해당 원료의 재고·소진 규모와 같은 자릿수로 맞춰 둔다.
+# (g 단위 원료의 재고는 수백만인데 공급 능력이 수천이면 어떤 조건에서도 추천이 0건이 된다)
 MOCK_SUPPLIERS: Dict[str, List[dict]] = {
     "API-CEFA-500": [
         {"materialId": 1, "supplierId": 7, "supplierName": "한국API공장",
-         "price": 42000, "availableCapacity": 5000, "gmpCertified": True, "originCountry": "KR"},
+         "price": 42000, "availableCapacity": 8000, "gmpCertified": True, "originCountry": "KR"},
         {"materialId": 1, "supplierId": 12, "supplierName": "대성파인케미칼",
          "price": 38500, "availableCapacity": 1200, "gmpCertified": True, "originCountry": "IN"},
         {"materialId": 1, "supplierId": 21, "supplierName": "신흥원료합성",
@@ -72,9 +74,9 @@ MOCK_SUPPLIERS: Dict[str, List[dict]] = {
     ],
     "API-OSEL-075": [
         {"materialId": 3, "supplierId": 41, "supplierName": "바이오젠원료",
-         "price": 96000, "availableCapacity": 800, "gmpCertified": True, "originCountry": "KR"},
+         "price": 96000, "availableCapacity": 3000000, "gmpCertified": True, "originCountry": "KR"},
         {"materialId": 3, "supplierId": 52, "supplierName": "라이프사이언스인디아",
-         "price": 81000, "availableCapacity": 2400, "gmpCertified": True, "originCountry": "IN"},
+         "price": 81000, "availableCapacity": 9000000, "gmpCertified": True, "originCountry": "IN"},
     ],
     "API-LORA-010": [
         {"materialId": 4, "supplierId": 12, "supplierName": "대성파인케미칼",
@@ -92,9 +94,9 @@ MOCK_SUPPLIERS: Dict[str, List[dict]] = {
     ],
     "API-DEXA-004": [
         {"materialId": 6, "supplierId": 41, "supplierName": "바이오젠원료",
-         "price": 54000, "availableCapacity": 40000, "gmpCertified": True, "originCountry": "KR"},
+         "price": 54000, "availableCapacity": 1600000, "gmpCertified": True, "originCountry": "KR"},
         {"materialId": 6, "supplierId": 66, "supplierName": "웨이하이케미칼",
-         "price": 45000, "availableCapacity": 12000, "gmpCertified": False, "originCountry": "CN"},
+         "price": 45000, "availableCapacity": 900000, "gmpCertified": False, "originCountry": "CN"},
     ],
 }
 
