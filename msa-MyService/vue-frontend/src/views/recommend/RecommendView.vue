@@ -20,7 +20,7 @@
             <div class="field">
               <label class="field__label" for="materialCode">원료코드 <span class="req">*</span></label>
               <input id="materialCode" class="input" v-model.trim="materialCode" type="text"
-                     required placeholder="API-ACET-325" />
+                     required placeholder="API-CEFA-500" />
             </div>
             <div class="field">
               <label class="field__label" for="quantity">필요 수량</label>
@@ -269,10 +269,19 @@ const auth = useAuthStore()
 
 const result = useAsync(recommendApi.get)
 
-// 재고 부족 알림에서 넘어온 값을 그대로 받는다.
-const materialCode = ref(route.query.materialCode ?? '')
+/**
+ * 화면에 처음 들어왔을 때 바로 결과가 보이도록 조회 조건을 채워 둔다.
+ *
+ * API-CEFA-500 을 쓰는 이유: 데모 카탈로그(mock_catalog)와 실제 material-service
+ * 시드 데이터 양쪽에 모두 있는 원료코드라, MOCK_MODE 를 꺼도 그대로 동작한다.
+ */
+const DEFAULT_MATERIAL_CODE = 'API-CEFA-500'
+const DEFAULT_HORIZON_DAYS = 90
+
+// 재고 부족 알림에서 넘어온 값이 있으면 그쪽을 우선한다.
+const materialCode = ref(route.query.materialCode ?? DEFAULT_MATERIAL_CODE)
 const quantity = ref(route.query.quantity ? Number(route.query.quantity) : null)
-const horizon = ref(90)
+const horizon = ref(DEFAULT_HORIZON_DAYS)
 
 const data = computed(() => result.data.value)
 const material = computed(() => data.value?.material ?? {})
@@ -307,6 +316,6 @@ function goOrder(supplier) {
 const formatNumber = (v) => (v == null ? '-' : Number(v).toLocaleString('ko-KR', { maximumFractionDigits: 1 }))
 const signedPercent = (v) => (v == null ? '-' : `${v > 0 ? '+' : ''}${(v * 100).toFixed(1)}%`)
 
-// 부족 알림에서 원료코드를 들고 들어온 경우 바로 조회한다.
+// 조건이 채워진 상태로 들어오므로 진입 즉시 1회 조회한다.
 onMounted(() => { if (materialCode.value) search() })
 </script>
