@@ -2,8 +2,15 @@ fastapi==0.115.5
 uvicorn[standard]==0.32.1
 httpx==0.28.1
 py-eureka-client==0.11.12
-kafka-python-ng==2.2.3
 python-jose[cryptography]==3.3.0
 pydantic==2.10.3
 pydantic-settings==2.6.1
 python-dotenv==1.0.1
+
+# 수요 예측 · 소진 시뮬레이션
+numpy==2.2.1
+pandas==2.2.3
+
+# FORECASTER=llm 일 때만 사용한다. 키가 없거나 import 에 실패하면
+# 합성 추세(SYNTHETIC_TREND)로 자동 폴백하므로 없어도 서비스는 뜬다.
+openai==1.59.6

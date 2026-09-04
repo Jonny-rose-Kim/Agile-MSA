@@ -1,7 +1,7 @@
 <!--
   담당 API: GET /api/recommend   (구 /api/forecast/demand + 공장 추천을 단일 엔드포인트로 통합)
   담당자  : (팀원) recommend-service
-  참고    : 수요 예측(Ep-03 US1)과 공장 추천을 한 번의 호출로 함께 받는다.
+  참고    : 재고 조회 → 수요 예측 → 소진 시뮬레이션 → GMP 인증 공급사 추천을 한 번에 받는다.
 -->
 <template>
   <div>
@@ -20,11 +20,12 @@
             <div class="field">
               <label class="field__label" for="materialCode">원료코드 <span class="req">*</span></label>
               <input id="materialCode" class="input" v-model.trim="materialCode" type="text"
-                     required placeholder="API-CEFA-500" />
+                     required placeholder="API-ACET-325" />
             </div>
             <div class="field">
               <label class="field__label" for="quantity">필요 수량</label>
-              <input id="quantity" class="input" v-model.number="quantity" type="number" min="1" placeholder="800" />
+              <input id="quantity" class="input" v-model.number="quantity" type="number" min="1"
+                     placeholder="생략하면 권장 발주량" />
             </div>
             <div class="field">
               <label class="field__label" for="horizon">예측 기간(일)</label>
@@ -56,68 +57,156 @@
       </div>
 
       <template v-else-if="data">
-        <!-- ===== 수요 예측 (Ep-03 US1) ===== -->
+        <!-- 데모 데이터로 동작 중임을 숨기지 않는다 -->
+        <div v-if="data.mock" class="notice">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" /><path d="M12 16v-4.5M12 8h.01" />
+          </svg>
+          <span>
+            데모 데이터 기준입니다. 원료 · 재고 · 공급사는 고정값이며 실제 카탈로그와 연결돼 있지 않습니다.
+            (<code>MOCK_MODE=false</code> 로 전환하면 실제 서비스를 호출합니다)
+          </span>
+        </div>
+
+        <!-- ===== 대상 원료 ===== -->
+        <section class="card">
+          <header class="card__head">
+            <div>
+              <h2 class="card__title">{{ material.name ?? material.materialCode }}</h2>
+              <p class="card__desc">{{ material.drug }}</p>
+            </div>
+            <div class="u-row">
+              <span class="code-tag">{{ material.materialCode }}</span>
+              <span class="badge" :data-status="forecast.basis === 'LLM_FORECAST' ? 'ACTIVE' : 'PENDING'">
+                {{ forecast.basis === 'LLM_FORECAST' ? 'LLM 예측' : '합성 추세' }}
+              </span>
+            </div>
+          </header>
+        </section>
+
+        <!-- ===== 핵심 지표 ===== -->
         <div class="tiles">
           <div class="tile">
-            <p class="tile__label">예측 수요</p>
-            <p class="tile__value">{{ formatNumber(data.predictedDemand) }}</p>
-            <p class="tile__sub">향후 {{ horizon || '-' }}일 기준</p>
+            <p class="tile__label">수요 증감률</p>
+            <p class="tile__value" :class="{ 'tile__value--risk': forecast.demandChange > 0 }">
+              {{ signedPercent(forecast.demandChange) }}
+            </p>
+            <p class="tile__sub">최근 {{ forecast.days }}일 · 직전 대비</p>
           </div>
           <div class="tile">
             <p class="tile__label">신뢰도</p>
-            <p class="tile__value">
-              {{ data.confidence != null ? (data.confidence * 100).toFixed(1) + '%' : '-' }}
-            </p>
-            <div v-if="data.confidence != null" class="meter u-mt-2">
+            <p class="tile__value">{{ forecast.confidence != null ? (forecast.confidence * 100).toFixed(0) + '%' : '-' }}</p>
+            <div v-if="forecast.confidence != null" class="meter u-mt-2">
               <span class="meter__track">
-                <span class="meter__fill" :style="{ width: (data.confidence * 100).toFixed(1) + '%' }"></span>
+                <span class="meter__fill" :style="{ width: (forecast.confidence * 100).toFixed(1) + '%' }"></span>
               </span>
             </div>
           </div>
           <div class="tile">
-            <p class="tile__label">예측 모델</p>
-            <p class="tile__value tile__value--sm">{{ data.modelType ?? '-' }}</p>
+            <p class="tile__label">임계치 하회 예상</p>
+            <p class="tile__value tile__value--sm">{{ forecast.shortageDate ?? '기간 내 없음' }}</p>
+            <p class="tile__sub" v-if="forecast.stockoutDate">재고 소진 {{ forecast.stockoutDate }}</p>
           </div>
           <div class="tile">
-            <p class="tile__label">반영 외부 지표</p>
-            <div class="chips u-mt-2">
-              <span v-for="f in (data.externalFactors ?? [])" :key="f" class="chip">{{ f }}</span>
-              <span v-if="!(data.externalFactors ?? []).length" class="u-muted">-</span>
-            </div>
+            <p class="tile__label">권장 발주량</p>
+            <p class="tile__value">
+              {{ formatNumber(forecast.recommendedOrderQty) }}<span class="tile__unit">{{ material.unit }}</span>
+            </p>
+            <p class="tile__sub">기준일 {{ forecast.asOf }}</p>
           </div>
         </div>
 
-        <!-- 기간별 예측값 -->
-        <section class="card" v-if="points.length">
+        <div v-if="forecast.summary" class="alert alert--info">
+          <svg class="alert__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" /><path d="M12 16v-4.5M12 8h.01" />
+          </svg>
+          {{ forecast.summary }}
+        </div>
+
+        <!-- ===== 소진 시뮬레이션 ===== -->
+        <section class="card">
           <header class="card__head">
             <div>
-              <h2 class="card__title">기간별 예측</h2>
-              <p class="card__desc">하한 · 상한은 예측 구간입니다.</p>
+              <h2 class="card__title">재고 소진 시뮬레이션</h2>
+              <p class="card__desc">평상시 소진량에 예측 증감률을 반영해 {{ forecast.days }}일간 재고를 계산했습니다.</p>
+            </div>
+          </header>
+          <div class="card__body">
+            <dl class="kv">
+              <dt>현재 재고</dt>
+              <dd class="u-num">{{ formatNumber(inventory.quantity) }} {{ material.unit }}</dd>
+
+              <dt>부족 임계치</dt>
+              <dd class="u-num">{{ formatNumber(inventory.threshold) }} {{ material.unit }}</dd>
+
+              <dt>일 소진량</dt>
+              <dd class="u-num">
+                평상시 {{ formatNumber(forecast.dailyConsumption?.baseline) }}
+                → 예측 <strong>{{ formatNumber(forecast.dailyConsumption?.predicted) }}</strong> {{ material.unit }}
+              </dd>
+
+              <dt>임계치 하회일</dt>
+              <dd>{{ forecast.shortageDate ?? '-' }}</dd>
+
+              <dt>재고 소진일</dt>
+              <dd>{{ forecast.stockoutDate ?? '-' }}</dd>
+
+              <dt>{{ forecast.days }}일 후 잔여 재고</dt>
+              <dd class="u-num">{{ formatNumber(forecast.projectedQuantity) }} {{ material.unit }}</dd>
+
+              <dt>부족량</dt>
+              <dd class="u-num u-strong">{{ formatNumber(forecast.shortfall) }} {{ material.unit }}</dd>
+
+              <dt>권장 임계치</dt>
+              <dd class="u-num">{{ formatNumber(forecast.recommendedThreshold) }} {{ material.unit }}</dd>
+            </dl>
+          </div>
+        </section>
+
+        <!-- ===== 반영 외부 지표 ===== -->
+        <section class="card" v-if="factors.length">
+          <header class="card__head">
+            <div>
+              <h2 class="card__title">반영 외부 지표</h2>
+              <p class="card__desc">수요 변화의 근거로 쓴 지표입니다.</p>
             </div>
           </header>
           <div class="card__body card__body--flush">
             <table class="table">
               <thead>
-                <tr><th>일자</th><th class="num">예측</th><th class="num">하한</th><th class="num">상한</th></tr>
+                <tr><th>지표</th><th>추세</th><th>영향도</th><th>근거</th></tr>
               </thead>
               <tbody>
-                <tr v-for="p in points" :key="p.date">
-                  <td data-label="일자" class="u-mono">{{ p.date }}</td>
-                  <td data-label="예측" class="num u-strong">{{ formatNumber(p.predicted) }}</td>
-                  <td data-label="하한" class="num u-muted">{{ formatNumber(p.lower) }}</td>
-                  <td data-label="상한" class="num u-muted">{{ formatNumber(p.upper) }}</td>
+                <tr v-for="f in factors" :key="f.name" :data-severity="f.impact">
+                  <td data-label="지표" class="u-strong">{{ f.name }}</td>
+                  <td data-label="추세">
+                    <span class="badge" :data-status="f.trend === 'RISING' ? 'PENDING' : f.trend === 'FALLING' ? 'CONFIRMED' : ''">
+                      {{ TREND_LABELS[f.trend] ?? f.trend }}
+                    </span>
+                  </td>
+                  <td data-label="영향도"><span class="badge" :data-severity="f.impact">{{ f.impact }}</span></td>
+                  <td data-label="근거">
+                    <span class="u-sm">{{ f.evidence }}</span>
+                    <a v-if="f.source_url" :href="f.source_url" target="_blank" rel="noopener"
+                       class="u-sm u-nowrap"> · 출처</a>
+                  </td>
                 </tr>
               </tbody>
             </table>
           </div>
         </section>
 
-        <!-- ===== 추천 공장 ===== -->
+        <!-- ===== 추천 공급사 ===== -->
         <section class="card">
           <header class="card__head">
             <div>
-              <h2 class="card__title">공급 리스크 기반 추천 공장</h2>
-              <p class="card__desc">리스크 점수가 낮을수록 안정적인 공급처입니다.</p>
+              <h2 class="card__title">공급 가능 인증 공장</h2>
+              <p class="card__desc">
+                GMP 인증을 보유하고 필요 수량 {{ formatNumber(data.needQuantity) }} {{ material.unit }}을
+                댈 수 있는 공장입니다. 과거 거래 횟수와 단가 순으로 정렬했습니다.
+              </p>
             </div>
           </header>
 
@@ -126,36 +215,32 @@
                  stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M3 20h18M4 20V10l5 3.5V10l5 3.5V10l5 3.5V20" />
             </svg>
-            <p class="empty__title">추천할 공장이 없습니다.</p>
-            <p class="empty__desc">원료코드나 필요 수량을 조정한 뒤 다시 조회해 보세요.</p>
+            <p class="empty__title">조건을 만족하는 인증 공장이 없습니다.</p>
+            <p class="empty__desc">필요 수량을 낮춰 다시 조회하거나, 여러 공장에 나눠 발주해야 합니다.</p>
           </div>
 
           <div v-else class="card__body card__body--flush">
             <table class="table">
               <thead>
                 <tr>
-                  <th>공장명</th><th>리스크 점수</th><th>등급</th><th>추천 사유</th>
+                  <th>공장명</th><th>국가</th><th>인증</th>
+                  <th class="num">단가</th><th class="num">여유 생산능력</th>
+                  <th class="num">과거 거래</th><th class="num">예상 비용</th>
                   <th><span class="sr-only">동작</span></th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="s in suppliers" :key="s.supplierId">
                   <td data-label="공장명" class="u-strong">{{ s.supplierName }}</td>
-                  <td data-label="리스크 점수">
-                    <span class="meter" data-tone="risk">
-                      <span class="meter__track">
-                        <span class="meter__fill" :style="{ width: riskPercent(s.riskScore) + '%' }"></span>
-                      </span>
-                      <span class="meter__value">{{ s.riskScore }}</span>
-                    </span>
+                  <td data-label="국가" class="u-muted">{{ s.originCountry ?? '-' }}</td>
+                  <td data-label="인증">
+                    <span v-if="s.gmpCertified" class="chip">GMP</span>
+                    <span v-else class="u-muted">-</span>
                   </td>
-                  <td data-label="등급"><span class="badge badge--plain">{{ s.grade }}</span></td>
-                  <td data-label="추천 사유">
-                    <div class="chips">
-                      <span v-for="r in (s.reasons ?? [])" :key="r" class="chip">{{ r }}</span>
-                      <span v-if="!(s.reasons ?? []).length" class="u-muted">-</span>
-                    </div>
-                  </td>
+                  <td data-label="단가" class="num">{{ formatNumber(s.price) }} 원</td>
+                  <td data-label="여유 생산능력" class="num">{{ formatNumber(s.availableCapacity) }}</td>
+                  <td data-label="과거 거래" class="num">{{ s.pastOrderCount ?? 0 }}회</td>
+                  <td data-label="예상 비용" class="num u-strong">{{ formatNumber(s.estimatedCost) }} 원</td>
                   <td class="actions-cell">
                     <button v-if="auth.isBuyer" type="button" class="btn btn--sm" @click="goOrder(s)">
                       조달 신청
@@ -174,7 +259,7 @@
 <script setup>
 import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { recommendApi } from '@/api/recommend.js'
+import { recommendApi, TREND_LABELS } from '@/api/recommend.js'
 import { useAsync } from '@/composables/useAsync.js'
 import { useAuthStore } from '@/store/auth.js'
 
@@ -190,37 +275,37 @@ const quantity = ref(route.query.quantity ? Number(route.query.quantity) : null)
 const horizon = ref(90)
 
 const data = computed(() => result.data.value)
-const points = computed(() => data.value?.points ?? [])
-const suppliers = computed(() => data.value?.suppliers ?? data.value?.recommendations ?? [])
+const material = computed(() => data.value?.material ?? {})
+const inventory = computed(() => data.value?.inventory ?? {})
+const forecast = computed(() => data.value?.forecast ?? {})
+const factors = computed(() => forecast.value?.factors ?? [])
+const suppliers = computed(() => data.value?.suppliers ?? [])
 
 async function search() {
   if (!materialCode.value) return
   await result.run({
     materialCode: materialCode.value,
     quantity: quantity.value || undefined,
-    horizon: horizon.value || undefined
+    days: horizon.value || undefined
   })
 }
 
+/**
+ * 조달 주문 화면으로 값을 넘긴다.
+ * 데모 데이터일 때는 materialId 가 실제 카탈로그 ID 와 다르므로 수량만 넘긴다.
+ */
 function goOrder(supplier) {
   router.push({
     path: '/orders',
-    query: { materialId: supplier.materialId ?? '', quantity: quantity.value ?? '' }
+    query: {
+      materialId: data.value?.mock ? '' : (supplier.materialId ?? ''),
+      quantity: data.value?.needQuantity ? Math.ceil(data.value.needQuantity) : ''
+    }
   })
 }
 
-const formatNumber = (v) => (v == null ? '-' : Number(v).toLocaleString('ko-KR'))
-
-/**
- * 리스크 점수 막대의 채움 비율(표시 전용).
- * 서버가 0~1로 주는지 0~100으로 주는지 확정되면 이 함수만 고치면 된다.
- */
-function riskPercent(score) {
-  const n = Number(score)
-  if (!Number.isFinite(n)) return 0
-  const pct = n <= 1 ? n * 100 : n
-  return Math.max(0, Math.min(100, pct))
-}
+const formatNumber = (v) => (v == null ? '-' : Number(v).toLocaleString('ko-KR', { maximumFractionDigits: 1 }))
+const signedPercent = (v) => (v == null ? '-' : `${v > 0 ? '+' : ''}${(v * 100).toFixed(1)}%`)
 
 // 부족 알림에서 원료코드를 들고 들어온 경우 바로 조회한다.
 onMounted(() => { if (materialCode.value) search() })

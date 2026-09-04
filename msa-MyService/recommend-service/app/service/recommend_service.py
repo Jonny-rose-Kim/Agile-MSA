@@ -1,105 +1,121 @@
-import logging
-from collections import Counter
-from typing import List, Optional
+"""
+GET /api/recommend 오케스트레이션.
 
-from app.client.course_client import course_client
-from app.client.enrollment_client import enrollment_client
-from app.model.schemas import CourseCategory, CourseResponse, RecommendResponse
+  재고 조회 → 수요 예측 → 소진 시뮬레이션 → 공급사 추천
+
+각 단계는 이미 개별 모듈에 있고, 여기서는 순서와 값 전달만 맡는다.
+어느 단계가 비어도(재고 미등록, 공급사 0건) 나머지는 정상 응답한다 —
+추천은 비핵심 기능이라 화면 전체가 실패하면 안 된다.
+"""
+
+import logging
+from datetime import date
+from typing import Optional
+
+from app.client.external_client import external_client
+from app.client.inventory_client import inventory_client
+from app.client.material_client import material_client
+from app.config.settings import settings
+from app.data import drug_material_map
+from app.service import consumption_service, supplier_service
+from app.service.forecast import get_forecast
 
 logger = logging.getLogger(__name__)
 
 
 class RecommendService:
-    """
-    규칙 기반 강의 추천 서비스
 
-    추천 규칙:
-    1. 사용자의 수강 중인 강의 카테고리 분석
-    2. 가장 많이 수강한 카테고리 선택 (최빈 카테고리)
-    3. 해당 카테고리에서 미수강 강의 조회
-    4. 수강생 수 기준 내림차순 정렬하여 반환
-    5. 수강 이력 없으면 전체 강의 중 인기순 반환
-    """
+    async def get_recommendation(
+        self,
+        material_code: str,
+        quantity: Optional[float] = None,
+        days: Optional[int] = None,
+        as_of: Optional[date] = None,
+        bearer_token: Optional[str] = None,
+    ) -> dict:
+        days = days or settings.forecast_default_days
+        resolved_as_of = external_client.as_of(as_of).date()
 
-    MAX_RECOMMEND_COUNT = 5  # 최대 추천 강의 수
+        # --- 1. 원료 · 재고 ---
+        materials = await material_client.list_materials()
+        material = await material_client.get_material(material_code) or {}
+        inventory = await inventory_client.get_my_inventory(material_code, bearer_token) or {}
 
-    async def get_recommendations(self, user_id: int) -> RecommendResponse:
-        logger.info(f"[RecommendService] 추천 시작 - userId: {user_id}")
+        drug = drug_material_map.lookup(material_code, material.get("category"))
 
-        # 1. 수강 이력 조회
-        history = await enrollment_client.get_enrollment_history(user_id)
-        active_course_ids = history.activeCourseIds
-
-        # 2. 수강 이력 없는 신규 사용자 처리
-        if not active_course_ids:
-            return await self._recommend_for_new_user(user_id)
-
-        # 3. 수강한 강의의 카테고리 분석 → 최빈 카테고리 선택
-        dominant_category = await self._find_dominant_category(active_course_ids)
-        if not dominant_category:
-            return await self._recommend_for_new_user(user_id)
-
-        # 4. 최빈 카테고리 기반 미수강 강의 조회
-        recommended = await course_client.get_recommend_courses(
-            category=dominant_category,
-            exclude_ids=active_course_ids
+        # --- 2. 수요 예측 ---
+        forecast = get_forecast(
+            material_code=material_code,
+            materials=materials,
+            drug=drug["drug"],
+            category=drug["category"],
+            days=days,
+            as_of=resolved_as_of,
         )
 
-        # 5. 최대 추천 수 제한
-        recommended = recommended[:self.MAX_RECOMMEND_COUNT]
-
-        logger.info(f"[RecommendService] 추천 완료 - userId: {user_id}, "
-                    f"category: {dominant_category}, count: {len(recommended)}")
-
-        return RecommendResponse(
-            userId=user_id,
-            recommendedCourses=recommended,
-            basedOnCategory=dominant_category,
-            message=f"{dominant_category.value} 카테고리 기반 추천 강의입니다"
+        # --- 3. 소진 시뮬레이션 ---
+        baseline_daily = consumption_service.baseline_daily_consumption(
+            material_code, materials, resolved_as_of
+        )
+        simulation = consumption_service.simulate(
+            quantity=float(inventory.get("quantity") or 0),
+            threshold=_as_float(inventory.get("threshold")),
+            baseline_daily=baseline_daily,
+            demand_change=forecast["demandChange"],
+            days=days,
+            as_of=resolved_as_of,
         )
 
-    async def _find_dominant_category(
-        self, course_ids: List[int]
-    ) -> Optional[CourseCategory]:
-        """
-        수강한 강의들의 카테고리 분석 → 최빈 카테고리 반환
-        Course Service에서 각 강의 정보를 조회하여 카테고리 집계
-        """
-        all_courses = await course_client.get_all_courses()
-        course_map = {c.id: c for c in all_courses}
+        # quantity 를 안 넘기면 권장 발주량을 필요 수량으로 쓴다.
+        need_quantity = quantity if quantity else simulation["recommendedOrderQty"]
 
-        categories = [
-            course_map[cid].category
-            for cid in course_ids
-            if cid in course_map
-        ]
+        # --- 4. 공급사 추천 ---
+        candidates = await material_client.get_candidates(material_code)
+        suppliers = supplier_service.select_suppliers(candidates, need_quantity)
 
-        if not categories:
-            return None
-
-        # Counter로 최빈 카테고리 선택
-        most_common = Counter(categories).most_common(1)
-        return most_common[0][0] if most_common else None
-
-    async def _recommend_for_new_user(self, user_id: int) -> RecommendResponse:
-        """
-        신규 사용자: 수강생 수 기준 전체 인기 강의 추천
-        """
-        logger.info(f"[RecommendService] 신규 사용자 추천 - userId: {user_id}")
-
-        all_courses = await course_client.get_all_courses()
-        popular = sorted(
-            all_courses,
-            key=lambda c: c.enrollmentCount,
-            reverse=True
-        )[:self.MAX_RECOMMEND_COUNT]
-
-        return RecommendResponse(
-            userId=user_id,
-            recommendedCourses=popular,
-            basedOnCategory=None,
-            message="인기 강의 추천입니다"
+        logger.info(
+            f"[Recommend] {material_code} - 기준일 {resolved_as_of}, {days}일, "
+            f"증감률 {forecast['demandChange']:+.1%}, 필요수량 {need_quantity:,.0f}, "
+            f"공급사 {len(suppliers)}곳"
         )
+
+        return {
+            "material": {
+                "materialId": material.get("materialId"),
+                "materialCode": material_code,
+                "name": material.get("name"),
+                "category": material.get("category"),
+                "unit": material.get("unit"),
+                "drug": drug["drug"],
+            },
+            "inventory": {
+                "inventoryId": inventory.get("inventoryId"),
+                "quantity": _as_float(inventory.get("quantity")),
+                "threshold": _as_float(inventory.get("threshold")),
+            },
+            "forecast": {
+                "days": days,
+                "asOf": resolved_as_of,
+                "basis": forecast["basis"],
+                "demandChange": forecast["demandChange"],
+                "confidence": forecast.get("confidence"),
+                "summary": forecast.get("summary", ""),
+                "factors": forecast.get("factors", []),
+                **simulation,
+            },
+            "suppliers": suppliers,
+            "needQuantity": need_quantity,
+            "mock": settings.mock_mode,
+        }
+
+
+def _as_float(value) -> Optional[float]:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 recommend_service = RecommendService()
