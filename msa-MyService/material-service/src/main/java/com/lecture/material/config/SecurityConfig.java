@@ -7,11 +7,6 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 
-/**
- * 인증은 API Gateway 가 끝낸다. 이 서비스는 Gateway 가 주입한
- * X-User-Id / X-User-Role 헤더만 신뢰하고, 외부에 직접 노출되지 않는다.
- * (다른 마이크로서비스와 동일한 정책)
- */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -27,7 +22,8 @@ public class SecurityConfig {
                 config.addAllowedHeader("*");
                 return config;
             }))
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .sessionManagement(session ->
+                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
         return http.build();
     }

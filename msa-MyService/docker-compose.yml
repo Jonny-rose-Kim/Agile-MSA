@@ -119,11 +119,10 @@ services:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI=http://auth-server:9000/oauth2/jwks
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://localhost:8080
+      # 프리빌트 이미지라 소스가 없다. 라우트 목록을 통째로 얹어 교체한다.
+      - SPRING_CONFIG_ADDITIONAL_LOCATION=/config/routes.yml
     volumes:
-      # 프리빌트 이미지라 소스가 없다. Spring Boot 가 ./config/application.yml 을
-      # jar 내부 설정보다 먼저 읽는 점을 이용해 라우트를 추가한다.
-      # (material-service / order-service 경로가 여기서 열린다)
-      - ./api-gateway-config:/app/config:ro
+      - ./gateway/routes.yml:/config/routes.yml:ro
     depends_on:
       eureka-server:
         condition: service_healthy
@@ -169,7 +168,8 @@ services:
       - "8086:8086"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - SPRING_DATASOURCE_URL=jdbc:mariadb://lecturedb:3306/lecture_db
+      # 서비스별 독립 스키마. init-db/00_databases.sql 이 생성한다.
+      - SPRING_DATASOURCE_URL=jdbc:mariadb://lecturedb:3306/material_db?createDatabaseIfNotExist=true
       - SPRING_DATASOURCE_USERNAME=manager
       - SPRING_DATASOURCE_PASSWORD=SqlDba-1
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
@@ -194,7 +194,8 @@ services:
       - "8087:8087"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - SPRING_DATASOURCE_URL=jdbc:mariadb://lecturedb:3306/lecture_db
+      # 서비스별 독립 스키마. init-db/00_databases.sql 이 생성한다.
+      - SPRING_DATASOURCE_URL=jdbc:mariadb://lecturedb:3306/order_db?createDatabaseIfNotExist=true
       - SPRING_DATASOURCE_USERNAME=manager
       - SPRING_DATASOURCE_PASSWORD=SqlDba-1
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
@@ -215,30 +216,6 @@ services:
     networks:
       - lecture-net
 
-  course-service:
-    build:
-      context: ./course-service
-      dockerfile: Dockerfile
-    container_name: lecture-course
-    ports:
-      - "8082:8082"
-    environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      - SPRING_DATASOURCE_URL=jdbc:mariadb://lecturedb:3306/lecture_db
-      - SPRING_DATASOURCE_USERNAME=manager
-      - SPRING_DATASOURCE_PASSWORD=SqlDba-1
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI=http://auth-server:9000/oauth2/jwks
-      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://auth-server:9000
-    depends_on:
-      mariadb:
-        condition: service_healthy
-      eureka-server:
-        condition: service_healthy
-      auth-server:
-        condition: service_healthy
-    networks:
-      - lecture-net
 
   enrollment-service:
     build:

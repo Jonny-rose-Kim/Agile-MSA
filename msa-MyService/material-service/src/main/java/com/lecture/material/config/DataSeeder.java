@@ -9,6 +9,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -100,7 +101,7 @@ public class DataSeeder {
 
     private static Material material(String code, String name, String cas,
                                      Material.Category category, Material.Unit unit,
-                                     int unitPrice, int minOrder, int capacity, int leadTime,
+                                     long unitPrice, int minOrder, int capacity, int leadTime,
                                      List<String> certifications, String country,
                                      Long supplierId, String supplierName, String description) {
         return Material.builder()
@@ -109,7 +110,7 @@ public class DataSeeder {
                 .casNumber(cas)
                 .category(category)
                 .unit(unit)
-                .unitPrice(unitPrice)
+                .unitPrice(BigDecimal.valueOf(unitPrice))
                 .minOrderQuantity(minOrder)
                 .availableCapacity(capacity)
                 .leadTimeDays(leadTime)

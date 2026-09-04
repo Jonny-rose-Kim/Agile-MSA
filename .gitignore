@@ -42,3 +42,6 @@ docker-compose.override.yml
 # 예외: 프론트엔드 dev 설정. VITE_ 접두사 값은 어차피 번들에 그대로 들어가므로
 # 비밀이 아니고, 팀원이 클론 후 바로 실행하려면 저장소에 있어야 한다.
 !msa-MyService/vue-frontend/.env
+
+# 실수로 중첩 클론된 저장소 (있으면 무시)
+/Agile-MSA/
