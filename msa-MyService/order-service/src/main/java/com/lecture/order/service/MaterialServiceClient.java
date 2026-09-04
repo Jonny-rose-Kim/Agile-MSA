@@ -95,8 +95,8 @@ public class MaterialServiceClient {
     public void reserveCapacity(Long materialId, int quantity) {
         try {
             webClient.post()
-                    .uri("/api/materials/internal/{id}/reserve", materialId)
-                    .bodyValue(Map.of("quantity", quantity))
+                    .uri(b -> b.path("/api/materials/internal/{id}/capacity-deduct")
+                            .queryParam("quantity", quantity).build(materialId))
                     .retrieve()
                     .toBodilessEntity()
                     .timeout(Duration.ofSeconds(5))
@@ -115,8 +115,8 @@ public class MaterialServiceClient {
     public void releaseCapacity(Long materialId, int quantity) {
         try {
             webClient.post()
-                    .uri("/api/materials/internal/{id}/release", materialId)
-                    .bodyValue(Map.of("quantity", quantity))
+                    .uri(b -> b.path("/api/materials/internal/{id}/capacity-restore")
+                            .queryParam("quantity", quantity).build(materialId))
                     .retrieve()
                     .toBodilessEntity()
                     .timeout(Duration.ofSeconds(5))

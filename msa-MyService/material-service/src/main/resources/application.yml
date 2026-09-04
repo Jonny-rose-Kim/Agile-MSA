@@ -6,7 +6,7 @@ spring:
     name: material-service
 
   datasource:
-    url: jdbc:mariadb://lecturedb:3306/lecture_db
+    url: jdbc:mariadb://lecturedb:3306/material_db?createDatabaseIfNotExist=true
     username: manager
     password: SqlDba-1
     driver-class-name: org.mariadb.jdbc.Driver
@@ -24,29 +24,15 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          jwk-set-uri: http://auth-server:9000/oauth2/jwks
-          issuer-uri: http://auth-server:9000
+          jwk-set-uri: http://localhost:9000/oauth2/jwks
+          issuer-uri: http://localhost:9000
 
 eureka:
   client:
     service-url:
-      defaultZone: http://eureka-server:8761/eureka/
+      defaultZone: http://localhost:8761/eureka/
   instance:
     prefer-ip-address: true
-
-# 서비스 간 통신 (컨테이너 DNS 직접 호출)
-service:
-  user-service:
-    url: http://user-service:8081
-
-# 데모용 초기 데이터. materials 테이블이 비어 있을 때만 1회 적재한다.
-app:
-  seed:
-    enabled: true
-
-# 서비스 간 내부 API 호출 키. 호출하는 쪽과 값이 같아야 한다.
-internal:
-  api-key: ${INTERNAL_API_KEY:msa-internal-key}
 
 springdoc:
   api-docs:
@@ -54,14 +40,17 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info
-  endpoint:
-    health:
-      show-details: always
-  health:
-    diskspace:
-      enabled: false
+logging:
+  level:
+    com.lecture.material: DEBUG
+
+# 데모용 초기 데이터. materials 테이블이 비어 있을 때만 1회 적재한다.
+# 운영에 올릴 때는 false 로 끈다.
+app:
+  seed:
+    enabled: ${APP_SEED_ENABLED:true}
+
+# 서비스 간 내부 API 호출 키. 호출하는 쪽(order-service)과 값이 같아야 한다.
+# /api/materials/internal/** 은 이 키가 있어야 열린다.
+internal:
+  api-key: ${INTERNAL_API_KEY:msa-internal-key}
