@@ -1,7 +1,7 @@
-# material-service — course-service 대비 변경 내역
+# material-service —> course-service  변경 내역
 
-강의용 `course-service`(강의 도메인)를 원료의약품 도메인 `material-service`로 개편했다.
-아래는 **기존 course-service 대비 추가·수정한 부분만** 정리한 것이다.
+기존 코드인 `course-service`를 원료의약품 도메인 `material-service`로 개편했다.
+기존 course-service 대비 추가·수정한 부분 정리.
 
 ---
 
@@ -44,7 +44,7 @@ course의 필드(title, description, category, price, instructorId, enrollmentCo
 
 ---
 
-## 3. 새로 추가한 파일 (course-service에 없던 것)
+## 3. 새로 추가한 파일 
 
 | 파일 | 역할 |
 |---|---|
@@ -73,19 +73,19 @@ course의 필드(title, description, category, price, instructorId, enrollmentCo
 |---|---|---|---|
 | 1 | `GET /api/materials` | 전체목록·카테고리별만 있었음 | **통합검색**(원료명·코드·CAS) + 인증·생산능력 필터 + **페이징·정렬** |
 | 2 | `GET /api/materials/{id}` | 있음 | 상세 |
-| 3 | `GET /api/materials/code/{materialCode}/suppliers` | **없음 (신규)** | **대체 공급처 자동 조회 (Ep-01 US1)** — 동일 원료코드를 공급하는 여러 공장을 필요 수량·인증으로 필터링, 리드타임순 정렬, `suppliable` 플래그 |
+| 3 | `GET /api/materials/code/{materialCode}/suppliers` | **신규** | **대체 공급처 자동 조회 (Ep-01 US1)** — 동일 원료코드를 공급하는 여러 공장을 필요 수량·인증으로 필터링, 리드타임순 정렬, `suppliable` 플래그 |
 | 4 | `POST /api/materials` | 있음 | 등록 — **SUPPLIER만(403)**, 공급사 내 코드 중복 시 **409** |
-| 5 | `PUT /api/materials/{id}` | **없음 (신규)** | 수정 — **본인 소유만(403)** |
-| 6 | `PATCH /api/materials/{id}/capacity` | **없음 (신규)** | **여유 생산능력만 부분 갱신 (Ep-02 US2)** — 인라인 편집용 |
-| 7 | `GET /api/materials/my` | **없음 (신규)** | 내 공급 품목 (X-User-Id 기준) |
-| 8 | `DELETE /api/materials/{id}` | **없음 (신규)** | 공급 중단 — **soft delete** (status=INACTIVE). course는 삭제 기능 자체가 없었음 |
+| 5 | `PUT /api/materials/{id}` | **신규** | 수정 — **본인 소유만(403)** |
+| 6 | `PATCH /api/materials/{id}/capacity` | **신규** | **여유 생산능력만 부분 갱신 (Ep-02 US2)** — 인라인 편집용 |
+| 7 | `GET /api/materials/my` | **신규** | 내 공급 품목 (X-User-Id 기준) |
+| 8 | `DELETE /api/materials/{id}` | **신규** | 공급 중단 — **soft delete** (status=INACTIVE). course는 삭제 기능 자체가 없었음 |
 | int | `GET /internal/{id}` | 유사 (`/internal/{id}`) | order-service가 주문 생성 시 원료·단가 조회 |
 | int | `GET /internal/exists/{id}` | 동일 | 원료 존재 확인 |
-| int | `POST /internal/{id}/capacity-deduct` | **없음 (신규)** | 결제 완료 후 여유 생산능력 차감 |
+| int | `POST /internal/{id}/capacity-deduct` | **신규** | 결제 완료 후 여유 생산능력 차감 |
 
 ---
 
-## 6. 권한 처리 (course에는 없던 로직)
+## 6. 권한 처리 (추가 로직)
 
 - course-service: `SecurityConfig`가 `permitAll`이고 권한 검사 없음.
 - material-service: 등록·수정·삭제·생산능력갱신 시
