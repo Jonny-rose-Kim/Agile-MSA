@@ -200,12 +200,15 @@ services:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI=http://auth-server:9000/oauth2/jwks
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://auth-server:9000
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
     depends_on:
       mariadb:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
       auth-server:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
       material-service:
         condition: service_started
@@ -281,6 +284,7 @@ services:
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI=http://auth-server:9000/oauth2/jwks
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://auth-server:9000
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - ORDER_SERVICE_URL=http://order-service:8087
     depends_on:
       mariadb:
         condition: service_healthy
@@ -290,6 +294,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      order-service:
+        condition: service_started
     networks:
       - lecture-net
 

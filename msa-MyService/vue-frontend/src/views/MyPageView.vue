@@ -90,7 +90,8 @@
           <form class="filter-bar filter-bar--start" @submit.prevent="lookup">
             <div class="field">
               <label class="field__label" for="lookupId">사용자 ID</label>
-              <input id="lookupId" class="input" v-model.number="lookupId" type="number" min="1" placeholder="7" />
+              <input id="lookupId" class="input" v-model.number="lookupId" type="number" min="1" placeholder="3" />
+          <span class="field__hint">조회를 누르면 해당 계정의 소속·인증 정보를 가져옵니다.</span>
             </div>
             <div class="filter-bar__actions">
               <button type="submit" class="btn" :disabled="!lookupId || lookupUser.loading.value">
@@ -142,7 +143,9 @@ const auth = useAuthStore()
 const loading = ref(false)
 const error = ref('')
 
-const lookupId = ref(null)
+// 값만 채워 두고 조회하지는 않는다. "조회"를 눌렀을 때 동작을 볼 수 있어야 한다.
+// 3번은 시드 계정 중 소속(한국API공장)이 채워진 공급 공장이라 결과가 잘 보인다.
+const lookupId = ref(3)
 const lookupUser = useAsync(userApi.getById)
 
 async function refresh() {

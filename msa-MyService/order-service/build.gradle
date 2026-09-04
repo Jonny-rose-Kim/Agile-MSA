@@ -41,6 +41,9 @@ dependencies {
     // WebClient (서비스 간 동기 통신)
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
 
+    // Kafka (결제 완료 이벤트 수신)
+    implementation 'org.springframework.kafka:spring-kafka'
+
     // Validation
     implementation 'org.springframework.boot:spring-boot-starter-validation'
 

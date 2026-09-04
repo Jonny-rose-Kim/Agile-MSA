@@ -13,6 +13,19 @@ import java.util.stream.Collectors;
 @RestControllerAdvice(basePackages = "com.lecture.payment.controller")
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(SecurityException.class)
+    public ResponseEntity<PaymentDto.ApiResponse<Void>> handleSecurity(SecurityException e) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(PaymentDto.ApiResponse.error(e.getMessage()));
+    }
+
+    /** Gateway 를 거치지 않고 직접 호출하면 X-User-Id 가 없다. 원인을 분명히 알려준다. */
+    @ExceptionHandler(org.springframework.web.bind.MissingRequestHeaderException.class)
+    public ResponseEntity<PaymentDto.ApiResponse<Void>> handleMissingHeader(
+            org.springframework.web.bind.MissingRequestHeaderException e) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(PaymentDto.ApiResponse.error("인증 정보가 없습니다 (" + e.getHeaderName() + ")"));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<PaymentDto.ApiResponse<Void>> handleIllegalArgument(IllegalArgumentException e) {
         return ResponseEntity.badRequest()

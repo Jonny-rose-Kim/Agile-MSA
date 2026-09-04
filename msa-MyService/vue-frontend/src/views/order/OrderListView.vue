@@ -40,7 +40,8 @@
             <div class="field">
               <label class="field__label" for="materialId">원료 ID <span class="req">*</span></label>
               <input id="materialId" class="input" v-model.number="form.materialId"
-                     type="number" min="1" required />
+                     type="number" min="1" required placeholder="1" />
+              <span class="field__hint">원료 카탈로그의 상세 화면에서 ID를 확인할 수 있습니다.</span>
             </div>
             <div class="field">
               <label class="field__label" for="quantity">수량 <span class="req">*</span></label>
@@ -128,10 +129,15 @@ const saving = ref(false)
 const createError = ref('')
 const createSuccess = ref('')
 
-// 원료 상세의 "조달 신청" 버튼에서 넘어온 값을 그대로 받는다.
+// 원료 상세 · AI 추천의 "조달 신청" 버튼에서 넘어온 값을 우선한다.
+// 넘어온 값이 없으면 바로 신청해 볼 수 있는 기본값을 채워 둔다.
+// (값만 채우고 신청하지는 않는다 — "조달 신청"을 눌렀을 때 동작을 볼 수 있어야 한다)
+const DEFAULT_MATERIAL_ID = 1
+const DEFAULT_QUANTITY = 100
+
 const form = reactive({
-  materialId: route.query.materialId ? Number(route.query.materialId) : null,
-  quantity: route.query.quantity ? Number(route.query.quantity) : null,
+  materialId: route.query.materialId ? Number(route.query.materialId) : DEFAULT_MATERIAL_ID,
+  quantity: route.query.quantity ? Number(route.query.quantity) : DEFAULT_QUANTITY,
   requiredDate: ''
 })
 

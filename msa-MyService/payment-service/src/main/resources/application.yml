@@ -47,7 +47,16 @@ eureka:
 # Kafka 토픽명
 kafka:
   topic:
-    payment-completed: payment.completed
+    order-payment-completed: order.payment.completed
+
+# 서비스 간 통신 (컨테이너 DNS 직접 호출)
+service:
+  order-service:
+    url: ${ORDER_SERVICE_URL:http://order-service:8087}
+
+# 서비스 간 내부 API 호출 키. 호출받는 쪽과 값이 같아야 한다.
+internal:
+  api-key: ${INTERNAL_API_KEY:msa-internal-key}
 
 springdoc:
   api-docs:

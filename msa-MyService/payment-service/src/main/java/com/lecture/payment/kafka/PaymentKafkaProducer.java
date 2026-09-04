@@ -4,11 +4,20 @@ import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Component;
 
-import java.util.concurrent.TimeUnit;
+import java.time.LocalDateTime;
 
+/**
+ * 결제 완료 이벤트 발행.
+ *
+ * order-service 가 이 이벤트를 받아 주문을 CONFIRMED 로 바꾼다.
+ * 동기 호출로 묶지 않는 이유: 결제는 성공했는데 주문 확정이 실패했다고 해서
+ * 결제를 되돌릴 수는 없다. 두 작업을 끊어 각자 재시도할 수 있게 둔다.
+ *
+ * 강의 템플릿의 payment.completed 와 토픽을 분리했다.
+ * 그쪽은 enrollment-service 가 courseId 를 기대하며 소비하고 있어 이벤트 모양이 다르다.
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -16,50 +25,31 @@ public class PaymentKafkaProducer {
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
-    @Value("${kafka.topic.payment-completed}")
-    private String paymentCompletedTopic;
+    @Value("${kafka.topic.order-payment-completed}")
+    private String topic;
 
-    /**
-     * payment.completed 이벤트 발행
-     * → Enrollment Service가 수신하여 수강 활성화
-     *
-     * 개발/검증 단계에서는 전송 성공 여부를 즉시 확인하기 위해 동기적으로 기다린다.
-     */
     public void publishPaymentCompleted(PaymentCompletedEvent event) {
-        log.info("[Kafka Producer] payment.completed 발행 시도 - topic: {}, paymentId: {}, userId: {}, courseId: {}",
-                paymentCompletedTopic, event.getPaymentId(), event.getUserId(), event.getCourseId());
-
         try {
-            SendResult<String, Object> result = kafkaTemplate
-                    .send(paymentCompletedTopic, String.valueOf(event.getUserId()), event)
-                    .get(10, TimeUnit.SECONDS);
-
-            log.info("[Kafka Producer] payment.completed 발행 성공 - topic: {}, partition: {}, offset: {}",
-                    paymentCompletedTopic,
-                    result.getRecordMetadata().partition(),
-                    result.getRecordMetadata().offset());
-
+            kafkaTemplate.send(topic, String.valueOf(event.getOrderId()), event);
+            log.info("[Kafka] {} 발행 - paymentId: {}, orderId: {}, amount: {}",
+                    topic, event.getPaymentId(), event.getOrderId(), event.getAmount());
         } catch (Exception e) {
-            log.error("[Kafka Producer] payment.completed 발행 실패 - topic: {}, paymentId: {}, userId: {}, courseId: {}, error: {}",
-                    paymentCompletedTopic,
-                    event.getPaymentId(),
-                    event.getUserId(),
-                    event.getCourseId(),
-                    e.getMessage(),
-                    e);
-
-            throw new RuntimeException("payment.completed Kafka 발행 실패", e);
+            // 발행에 실패해도 결제 자체는 이미 승인됐다. 주문 확정만 지연된다.
+            log.error("[Kafka] {} 발행 실패 - paymentId: {}, orderId: {}, error: {}",
+                    topic, event.getPaymentId(), event.getOrderId(), e.getMessage());
         }
     }
 
     @Getter
+    @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    @Builder
     public static class PaymentCompletedEvent {
         private Long paymentId;
-        private Long userId;
-        private Long courseId;
-        private String status;
+        private Long orderId;
+        private Long buyerId;
+        private Long amount;
+        private String transactionId;
+        private LocalDateTime completedAt;
     }
 }

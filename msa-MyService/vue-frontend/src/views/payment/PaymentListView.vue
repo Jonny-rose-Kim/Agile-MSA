@@ -40,7 +40,9 @@
           <form class="filter-bar filter-bar--start" @submit.prevent="pay">
             <div class="field">
               <label class="field__label" for="orderId">주문번호 <span class="req">*</span></label>
-              <input id="orderId" class="input" v-model.number="orderId" type="number" min="1" required />
+              <input id="orderId" class="input" v-model.number="orderId" type="number" min="1"
+                     required placeholder="1" />
+              <span v-if="pendingHint" class="field__hint">{{ pendingHint }}</span>
             </div>
             <div class="filter-bar__actions">
               <button type="submit" class="btn" :disabled="paying">
@@ -106,12 +108,16 @@
 
 <script setup>
 import { computed, ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { paymentApi } from '@/api/payment.js'
+import { orderApi } from '@/api/order.js'
 import { useAsync } from '@/composables/useAsync.js'
 import { errorMessage } from '@/api/index.js'
 
+const route = useRoute()
 const list = useAsync(paymentApi.my, { initial: { content: [] } })
-const orderId = ref(null)
+const orderId = ref(route.query.orderId ? Number(route.query.orderId) : null)
+const pendingHint = ref('')
 const paying = ref(false)
 const payError = ref('')
 const paySuccess = ref('')
@@ -128,8 +134,13 @@ async function pay() {
   paySuccess.value = ''
   try {
     const res = await paymentApi.create({ orderId: orderId.value })
-    paySuccess.value = `결제 요청 완료 (상태: ${res?.status ?? '-'})`
+    paySuccess.value =
+      `주문 ${res?.orderId ?? orderId.value}번 결제가 완료되었습니다. ` +
+      `(거래번호 ${res?.transactionId ?? '-'}) 주문 상태는 결제 완료 이벤트로 곧 CONFIRMED 가 됩니다.`
+    orderId.value = null
+    pendingHint.value = ''
     await load()
+    await prefillPendingOrder()
   } catch (e) {
     payError.value = errorMessage(e)
   } finally {
@@ -140,5 +151,33 @@ async function pay() {
 const formatNumber = (v) => (v == null ? '-' : Number(v).toLocaleString('ko-KR'))
 const formatDate = (v) => (v ? new Date(v).toLocaleString('ko-KR') : '-')
 
-onMounted(load)
+/**
+ * 결제 대기(PENDING) 주문 하나를 찾아 주문번호를 미리 채운다.
+ * 값만 채우고 결제하지는 않는다 — "결제하기"를 눌렀을 때 동작을 볼 수 있어야 한다.
+ * 대기 중인 주문이 없으면 비워 두고 안내만 남긴다.
+ */
+async function prefillPendingOrder() {
+  if (orderId.value) return
+  try {
+    const page = await orderApi.my({ page: 0, size: 50 })
+    const rows = page?.content ?? page ?? []
+    const pending = rows.find((o) => o.status === 'PENDING')
+    if (pending) {
+      orderId.value = pending.orderId ?? pending.id
+      pendingHint.value =
+        `결제 대기 중인 주문 #${orderId.value} (${pending.materialName ?? '-'}, ` +
+        `${Number(pending.totalAmount ?? 0).toLocaleString('ko-KR')}원)`
+    } else {
+      pendingHint.value = '결제 대기 중인 주문이 없습니다. 조달 주문 화면에서 먼저 신청하세요.'
+    }
+  } catch {
+    // 주문 조회에 실패해도 결제 화면 자체는 쓸 수 있어야 한다.
+    pendingHint.value = ''
+  }
+}
+
+onMounted(() => {
+  load()
+  prefillPendingOrder()
+})
 </script>

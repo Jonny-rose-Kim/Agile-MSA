@@ -89,6 +89,12 @@ public class OrderController {
 
     // ===== 내부 API: payment-service 전용. Gateway 에 라우트를 열지 않는다. =====
 
+    /** 주문 조회. payment-service 가 결제 금액과 소유자를 확인할 때 쓴다. */
+    @GetMapping("/internal/{id}")
+    public ResponseEntity<OrderDto.OrderResponse> internalGet(@PathVariable Long id) {
+        return ResponseEntity.ok(orderService.getInternal(id));
+    }
+
     /** 결제 완료 시 주문을 CONFIRMED 로 바꾼다. (Sprint 2) */
     @PostMapping("/internal/{id}/confirm")
     public ResponseEntity<OrderDto.OrderResponse> internalConfirm(@PathVariable Long id) {

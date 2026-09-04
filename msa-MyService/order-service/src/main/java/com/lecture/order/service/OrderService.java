@@ -95,6 +95,13 @@ public class OrderService {
         return OrderDto.OrderStatusResponse.from(findVisible(orderId, userId));
     }
 
+    /** 내부 호출용 조회. 호출자가 서비스라 X-User-Id 기반 소유자 검사를 하지 않는다. */
+    public OrderDto.OrderResponse getInternal(Long orderId) {
+        return OrderDto.OrderResponse.from(
+                orderRepository.findById(orderId)
+                        .orElseThrow(() -> new IllegalArgumentException("주문을 찾을 수 없습니다: " + orderId)));
+    }
+
     /**
      * 결제 완료 처리. Sprint 2 에서 payment-service 가 결제를 마치면 호출한다.
      * (Kafka payment.completed 소비는 payment-service 담당자가 이어서 붙인다)

@@ -6,12 +6,13 @@ import com.lecture.payment.kafka.PaymentKafkaProducer;
 import com.lecture.payment.repository.PaymentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.time.LocalDateTime;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -20,88 +21,78 @@ import java.util.stream.Collectors;
 public class PaymentService {
 
     private final PaymentRepository paymentRepository;
+    private final OrderServiceClient orderServiceClient;
     private final PaymentKafkaProducer kafkaProducer;
 
     /**
-     * 내부 결제 요청 (Enrollment Service → Payment Service REST 호출)
-     * 실습 환경에서는 PG 연동 없이 항상 성공으로 처리
+     * POST /api/payments — 조달 주문 결제
      *
-     * 처리 흐름:
-     * 1. Payment 생성 (PENDING)
-     * 2. PG 결제 처리 (실습: UUID 트랜잭션 ID 발급으로 대체)
-     * 3. Payment 상태 → COMPLETED
-     * 4. payment.completed 이벤트 발행 → Kafka
+     * 1) order-service 에서 주문을 가져와 소유자·상태·중복 결제를 검증한다
+     * 2) 금액은 주문의 totalAmount 를 쓴다 (클라이언트가 보낸 값은 신뢰하지 않는다)
+     * 3) 승인 처리 후 order.payment.completed 를 발행한다
+     *    → order-service 가 받아 주문을 CONFIRMED 로 바꾼다
+     *
+     * 실제 PG 연동 전이라 승인은 항상 성공하고 거래번호를 여기서 만든다.
      */
     @Transactional
-    public PaymentDto.InternalPaymentResult processInternalPayment(
-            PaymentDto.InternalPaymentRequest request) {
+    public PaymentDto.PaymentResponse pay(Long buyerId, Long orderId) {
+        paymentRepository.findByOrderId(orderId).ifPresent(existing -> {
+            throw new IllegalArgumentException(
+                    "이미 결제된 주문입니다 (결제번호 " + existing.getId() + ")");
+        });
 
-        log.info("[PaymentService] 결제 요청 - userId: {}, courseId: {}, amount: {}",
-                request.getUserId(), request.getCourseId(), request.getAmount());
+        PaymentDto.OrderSnapshot order = orderServiceClient.getOrder(orderId);
 
-        Payment payment = paymentRepository.save(
-                Payment.builder()
-                        .userId(request.getUserId())
-                        .courseId(request.getCourseId())
-                        .amount(request.getAmount())
-                        .build()
-        );
-
-        try {
-            String transactionId = UUID.randomUUID().toString();
-
-            payment.complete(transactionId);
-            log.info("[PaymentService] 결제 완료 처리 - paymentId: {}, transactionId: {}",
-                    payment.getId(), transactionId);
-
-            kafkaProducer.publishPaymentCompleted(
-                    PaymentKafkaProducer.PaymentCompletedEvent.builder()
-                            .paymentId(payment.getId())
-                            .userId(request.getUserId())
-                            .courseId(request.getCourseId())
-                            .status("COMPLETED")
-                            .build()
-            );
-
-            log.info("[PaymentService] 결제 최종 성공 - paymentId: {}", payment.getId());
-
-            return PaymentDto.InternalPaymentResult.builder()
-                    .paymentId(payment.getId())
-                    .status("COMPLETED")
-                    .build();
-
-        } catch (Exception e) {
-            payment.fail();
-
-            log.error("[PaymentService] 결제 실패 - paymentId: {}, userId: {}, courseId: {}, error: {}",
-                    payment.getId(),
-                    request.getUserId(),
-                    request.getCourseId(),
-                    e.getMessage(),
-                    e);
-
-            return PaymentDto.InternalPaymentResult.builder()
-                    .paymentId(payment.getId())
-                    .status("FAILED")
-                    .build();
+        if (!buyerId.equals(order.getBuyerId())) {
+            throw new SecurityException("본인 주문만 결제할 수 있습니다");
         }
+        if (!"PENDING".equalsIgnoreCase(order.getStatus())) {
+            throw new IllegalArgumentException(
+                    "결제 대기 상태의 주문만 결제할 수 있습니다 (현재: " + order.getStatus() + ")");
+        }
+        if (order.getTotalAmount() == null || order.getTotalAmount() <= 0) {
+            throw new IllegalArgumentException("주문 금액이 올바르지 않습니다");
+        }
+
+        Payment payment = Payment.builder()
+                .buyerId(buyerId)
+                .orderId(orderId)
+                .amount(order.getTotalAmount())
+                .status(Payment.Status.PENDING)
+                .build();
+
+        // 실제 PG 승인 자리. 지금은 항상 승인된다.
+        payment.complete("TXN-" + UUID.randomUUID().toString().substring(0, 12).toUpperCase());
+
+        Payment saved = paymentRepository.save(payment);
+        log.info("[PaymentService] 결제 승인 - paymentId: {}, orderId: {}, buyerId: {}, amount: {}",
+                saved.getId(), orderId, buyerId, saved.getAmount());
+
+        kafkaProducer.publishPaymentCompleted(
+                PaymentKafkaProducer.PaymentCompletedEvent.builder()
+                        .paymentId(saved.getId())
+                        .orderId(orderId)
+                        .buyerId(buyerId)
+                        .amount(saved.getAmount())
+                        .transactionId(saved.getTransactionId())
+                        .completedAt(LocalDateTime.now())
+                        .build());
+
+        return PaymentDto.PaymentResponse.from(saved);
     }
 
-    /**
-     * 결제 단건 조회
-     */
-    public PaymentDto.PaymentResponse getPayment(Long id) {
-        Payment payment = paymentRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("결제 정보를 찾을 수 없습니다: " + id));
+    /** GET /api/payments/my — 내 결제 내역 */
+    public Page<PaymentDto.PaymentResponse> getMyPayments(Long buyerId, Pageable pageable) {
+        return paymentRepository.findByBuyerId(buyerId, pageable)
+                .map(PaymentDto.PaymentResponse::from);
+    }
+
+    public PaymentDto.PaymentResponse get(Long paymentId, Long buyerId) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new IllegalArgumentException("결제 내역을 찾을 수 없습니다: " + paymentId));
+        if (!payment.getBuyerId().equals(buyerId)) {
+            throw new SecurityException("본인 결제 내역만 조회할 수 있습니다");
+        }
         return PaymentDto.PaymentResponse.from(payment);
-    }
-
-    /**
-     * 사용자 결제 내역 조회
-     */
-    public List<PaymentDto.PaymentResponse> getPaymentsByUser(Long userId) {
-        return paymentRepository.findByUserId(userId).stream()
-                .map(PaymentDto.PaymentResponse::from)
-                .collect(Collectors.toList());
     }
 }

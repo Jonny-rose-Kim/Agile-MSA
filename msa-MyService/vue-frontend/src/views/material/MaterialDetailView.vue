@@ -119,6 +119,7 @@
                 <label class="field__label" for="qty">필요 수량 ({{ material.unit }})</label>
                 <input id="qty" class="input" v-model.number="requiredQuantity"
                        type="number" min="1" placeholder="800" />
+                <span class="field__hint">최소 주문 수량으로 채워 뒀습니다. 조회하려면 "공급처 찾기"를 누르세요.</span>
               </div>
               <div class="field">
                 <label class="field__label" for="cert">인증 조건</label>
@@ -242,5 +243,11 @@ function formatNumber(v) {
   return v == null ? '-' : Number(v).toLocaleString('ko-KR')
 }
 
-onMounted(() => detail.run(route.params.id))
+onMounted(async () => {
+  await detail.run(route.params.id)
+  // 필요 수량만 미리 채운다. 공급처 조회는 버튼을 눌렀을 때 실행한다.
+  if (requiredQuantity.value == null) {
+    requiredQuantity.value = material.value?.minOrderQuantity ?? null
+  }
+})
 </script>

@@ -81,7 +81,7 @@ npm run dev
 | user-service | 8081 | 회원 · 권한 (BUYER / SUPPLIER) |
 | material-service | 8086 | 원료 카탈로그 · 공급 가능 공장 · 여유 생산능력 |
 | order-service | 8087 | 조달 주문 · 수주 관리 |
-| payment-service | 8084 | 조달 결제 |
+| payment-service | 8084 | 조달 결제 (승인 후 `order.payment.completed` 발행) |
 | recommend-service | 8085 | AI 수요 예측 · 공장 추천 |
 | vue-frontend | 3000 | 프론트엔드 |
 
@@ -103,6 +103,22 @@ Spring Boot가 작업 디렉터리의 `./config/application.yml`을 jar 내부 �
 
 인증은 그대로 동작합니다. 게이트웨이의 `JwtAuthenticationFilter`가 `GlobalFilter`라
 라우트를 새로 추가해도 `X-User-Id` / `X-User-Email` / `X-User-Role`이 자동 주입됩니다.
+
+### 결제 → 주문 확정 흐름
+
+결제와 주문 확정은 동기 호출로 묶지 않고 Kafka 로 끊어 두었습니다.
+결제는 성공했는데 주문 확정이 실패했다고 해서 결제를 되돌릴 수는 없기 때문입니다.
+
+```
+POST /api/payments      payment-service : 주문 금액 확인 → 승인 → 이벤트 발행
+        ↓  order.payment.completed (Kafka)
+order-service           : 주문 PENDING → CONFIRMED
+        ↓
+주문 상세 화면           : 폴링으로 상태 변화를 감지
+```
+
+강의 템플릿의 `payment.completed` 와 토픽을 분리했습니다. 그쪽은 `enrollment-service` 가
+`courseId` 를 기대하며 소비하고 있어 이벤트 모양이 다릅니다.
 
 ### 데모 원료 데이터
 

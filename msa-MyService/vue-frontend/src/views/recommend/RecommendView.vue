@@ -49,6 +49,21 @@
         {{ result.error.value }}
       </div>
 
+      <!-- 조회 전 상태 -->
+      <section v-if="!data && !result.loading.value && !result.error.value" class="card">
+        <div class="empty">
+          <svg class="empty__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 17.5 9 11l4 4 8-8" /><path d="M15 7h6v6" />
+          </svg>
+          <p class="empty__title">조회를 누르면 예측을 시작합니다.</p>
+          <p class="empty__desc">
+            원료코드 <strong>{{ materialCode }}</strong> 기준으로 수요 예측 · 재고 소진 시뮬레이션 ·
+            공급 가능 인증 공장을 한 번에 계산합니다.
+          </p>
+        </div>
+      </section>
+
       <div v-if="result.loading.value" class="card">
         <div class="skeleton-rows">
           <span class="skeleton"></span><span class="skeleton"></span>
@@ -316,6 +331,14 @@ function goOrder(supplier) {
 const formatNumber = (v) => (v == null ? '-' : Number(v).toLocaleString('ko-KR', { maximumFractionDigits: 1 }))
 const signedPercent = (v) => (v == null ? '-' : `${v > 0 ? '+' : ''}${(v * 100).toFixed(1)}%`)
 
-// 조건이 채워진 상태로 들어오므로 진입 즉시 1회 조회한다.
-onMounted(() => { if (materialCode.value) search() })
+/**
+ * 진입하자마자 조회하지는 않는다. 조건만 채워 두고 "조회"를 눌렀을 때
+ * 예측이 도는 것을 볼 수 있게 한다.
+ *
+ * 예외: 재고 부족 알림의 "공급처 찾기"로 들어온 경우는 이미 사용자가 의도를 밝힌
+ * 것이므로 바로 조회한다.
+ */
+onMounted(() => {
+  if (route.query.materialCode) search()
+})
 </script>
