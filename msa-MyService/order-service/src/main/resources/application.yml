@@ -45,6 +45,11 @@ service:
 internal:
   api-key: ${INTERNAL_API_KEY:msa-internal-key}
 
+# 재고 부족 감지 스케줄러 실행 주기 (ms)
+inventory:
+  shortage-check:
+    interval-ms: ${INVENTORY_SHORTAGE_CHECK_INTERVAL_MS:60000}
+
 springdoc:
   api-docs:
     path: /api-docs

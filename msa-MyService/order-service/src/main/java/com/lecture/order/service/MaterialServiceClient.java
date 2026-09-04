@@ -8,6 +8,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -54,6 +55,42 @@ public class MaterialServiceClient {
         }
     }
 
+    /**
+     * 원료코드로 카탈로그를 조회해 원료명·단위를 찾는다. (재고 등록 시 스냅샷용)
+     *
+     * 재고는 카탈로그에 없는 원료도 등록할 수 있어야 하므로, 못 찾거나 조회에 실패해도
+     * 예외를 던지지 않고 null 을 돌려준다. 호출자가 이름 없이 진행할지 결정한다.
+     */
+    public OrderDto.MaterialSnapshot findByCode(String materialCode) {
+        try {
+            Map<String, Object> body = webClient.get()
+                    .uri(uriBuilder -> uriBuilder.path("/api/materials")
+                            .queryParam("keyword", materialCode)
+                            .queryParam("size", 1)
+                            .build())
+                    .retrieve()
+                    .bodyToMono(MAP)
+                    .timeout(Duration.ofSeconds(5))
+                    .block();
+
+            Map<String, Object> page = unwrap(body);
+            if (page == null) return null;
+
+            Object content = page.get("content");
+            if (content instanceof List<?> list && !list.isEmpty() && list.get(0) instanceof Map<?, ?> first) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> material = (Map<String, Object>) first;
+                return toSnapshot(material);
+            }
+            return null;
+
+        } catch (Exception e) {
+            log.warn("[MaterialServiceClient] 원료코드 조회 실패 - materialCode: {}, error: {}",
+                    materialCode, e.getMessage());
+            return null;
+        }
+    }
+
     /** 여유 생산능력 차감. 부족하면 material-service 가 400 을 반환한다. */
     public void reserveCapacity(Long materialId, int quantity) {
         try {
@@ -94,11 +131,16 @@ public class MaterialServiceClient {
     private static final org.springframework.core.ParameterizedTypeReference<Map<String, Object>> MAP =
             new org.springframework.core.ParameterizedTypeReference<>() {};
 
-    private OrderDto.MaterialSnapshot toSnapshot(Map<String, Object> body) {
-        // 공통 래퍼({success,message,data})와 원본 객체 응답을 모두 허용한다.
+    /** 공통 래퍼({success,message,data})와 원본 객체 응답을 모두 허용한다. */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> unwrap(Map<String, Object> body) {
+        if (body == null) return null;
         Object data = body.get("data");
-        @SuppressWarnings("unchecked")
-        Map<String, Object> m = (data instanceof Map<?, ?>) ? (Map<String, Object>) data : body;
+        return (data instanceof Map<?, ?>) ? (Map<String, Object>) data : body;
+    }
+
+    private OrderDto.MaterialSnapshot toSnapshot(Map<String, Object> body) {
+        Map<String, Object> m = unwrap(body);
 
         return OrderDto.MaterialSnapshot.builder()
                 .id(asLong(m.get("id")))
