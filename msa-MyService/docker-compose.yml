@@ -254,7 +254,8 @@ services:
       - "8084:8084"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - SPRING_DATASOURCE_URL=jdbc:mariadb://lecturedb:3306/lecture_db
+      # 서비스별 독립 스키마. init-db/00_databases.sql 이 생성한다.
+      - SPRING_DATASOURCE_URL=jdbc:mariadb://lecturedb:3306/payment_db?createDatabaseIfNotExist=true
       - SPRING_DATASOURCE_USERNAME=manager
       - SPRING_DATASOURCE_PASSWORD=SqlDba-1
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/

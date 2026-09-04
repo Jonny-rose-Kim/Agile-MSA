@@ -10,4 +10,7 @@ GRANT ALL PRIVILEGES ON material_db.* TO 'manager'@'%';
 CREATE DATABASE IF NOT EXISTS order_db CHARACTER SET utf8mb4;
 GRANT ALL PRIVILEGES ON order_db.* TO 'manager'@'%';
 
+CREATE DATABASE IF NOT EXISTS payment_db CHARACTER SET utf8mb4;
+GRANT ALL PRIVILEGES ON payment_db.* TO 'manager'@'%';
+
 FLUSH PRIVILEGES;
