@@ -12,7 +12,7 @@ Eureka로 서비스를 찾고, Spring Cloud Gateway가 입구를 지키며, 인�
 **발표자료는 [여기](Agile+MSA_조별발표_3반_2조.pdf)에 있습니다.**
 ## 분업 
 
-김재환 : frontend, /api/users/ 기능 구현
+김재환 : frontend, /api/users/, /api/payments/ 기능 구현
 
 임진섭 :  /api/orders/  /api/inventories/ 구현
 
