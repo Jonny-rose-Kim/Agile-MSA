@@ -33,3 +33,8 @@ out/
 
 # 로컬 전용 compose 오버라이드
 docker-compose.override.yml
+
+# 시크릿 (API 키 등). .env.example 만 커밋한다.
+.env
+.env.local
+!.env.example
