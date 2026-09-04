@@ -1,0 +1,8 @@
+# 실제 시크릿이 들어가는 파일. .env.example만 커밋한다.
+.env
+
+# LLM 예측 파일 캐시
+.forecast-cache/
+
+__pycache__/
+*.pyc
